@@ -1,0 +1,12 @@
+{
+  "runSelfTest": true,
+  "debug": true,
+  "tickSeconds": 0.5,
+  "nativeTimeoutSeconds": 25.0,
+  "moveTimeoutSeconds": 40.0,
+  "lostGraceSeconds": 10.0,
+  "boundaryMargin": 2.0,
+  "allowOffNavmeshHops": false,
+  "deviceEntity": "base\\spawner\\workspot_device.ent",
+  "deviceComponent": "workspot"
+}
