@@ -3,7 +3,7 @@ import RedFileSystem.*
 import Codeware.*
 
 // One tick of the system. gen must match the system's current generation
-// or this callback belongs to a detached session and does nothing.
+// or this callback belongs to a retired chain and does nothing.
 public class HomebodyTickCallback extends DelayCallback {
   public let system: wref<HomebodySystem>;
   public let gen: Int32;
@@ -21,6 +21,9 @@ public class HomebodySystem extends ScriptableSystem {
   private let m_tickSeconds: Float = 0.5;
   private let m_probe: ref<HomebodyProbe>;
   private let m_registry: ref<HomeRegistry>;
+  private let m_controllers: array<ref<RoamController>>;
+  private let m_discoveries: array<ref<SpotDiscovery>>;
+  private let m_discoveryHomes: array<String>;
 
   public static func Get(gi: GameInstance) -> ref<HomebodySystem> {
     return GameInstance.GetScriptableSystemsContainer(gi)
@@ -44,41 +47,19 @@ public class HomebodySystem extends ScriptableSystem {
     };
     this.m_probe = new HomebodyProbe();
     if cfg.runSelfTest {
-      HomebodyLog.Info("self-test
-" + HomebodyRunSelfTests());
+      HomebodyLog.Info("self-test\n" + HomebodyRunSelfTests());
     };
     HomebodyLog.Info("attached (gen " + IntToString(this.m_gen) + ")");
   }
 
-  public func ProbeSpots(radius: Float) -> String {
-    return this.m_probe.StartSpots(radius);
-  }
-
-  public func ProbeUse(record: String, index: Int32) -> String {
-    return this.m_probe.StartUse(record, index);
-  }
-
-  public func ProbeCleanup() -> String {
-    return this.m_probe.Cleanup();
-  }
-
-  public func GetRegistry() -> ref<HomeRegistry> {
-    return this.m_registry;
-  }
-
-  public func ListHomes() -> String {
-    let out: String = "";
-    let h: ref<Home>;
-    let homes: array<ref<Home>> = this.m_registry.GetHomes();
-    for h in homes {
-      out += h.id + " rules=" + h.rulesName + (h.hasSpawn ? " spawn=" + h.spawnRecord : " attach-only") + "
-";
-    };
-    return out;
-  }
-
+  // A new session streams different sectors, so discovery starts over.
   private func OnDetach() -> Void {
     this.m_gen += 1;
+    let c: ref<RoamController>;
+    for c in this.m_controllers { c.Shutdown(); };
+    ArrayClear(this.m_controllers);
+    ArrayClear(this.m_discoveries);
+    ArrayClear(this.m_discoveryHomes);
     HomebodyLog.Info("detached");
   }
 
@@ -94,6 +75,10 @@ public class HomebodySystem extends ScriptableSystem {
 
   public func GetStorage() -> ref<FileSystemStorage> {
     return this.m_storage;
+  }
+
+  public func GetRegistry() -> ref<HomeRegistry> {
+    return this.m_registry;
   }
 
   public func Now() -> Float {
@@ -113,7 +98,181 @@ public class HomebodySystem extends ScriptableSystem {
     if this.m_ticks == 1 || this.m_ticks % 120 == 0 {
       HomebodyLog.Info("tick " + IntToString(this.m_ticks));
     };
+    let gi: GameInstance = GetGameInstance();
+    let now: Float = this.Now();
+    let hour: Int32 = GameTime.Hours(GameInstance.GetTimeSystem(gi).GetGameTime());
     this.m_probe.Tick();
+    let d: ref<SpotDiscovery>;
+    for d in this.m_discoveries { d.Tick(); };
+    let i: Int32 = 0;
+    while i < ArraySize(this.m_controllers) {
+      let c: ref<RoamController> = this.m_controllers[i];
+      if Equals(c.GetState(), n"Discovering") {
+        let home: ref<Home> = this.m_registry.FindHome(c.HomeId());
+        if IsDefined(home) && this.IsDiscoveryReady(home) { c.SetSpots(this.SpotsFor(home)); };
+      };
+      c.Tick(now, hour);
+      if c.IsLost() {
+        ArrayErase(this.m_controllers, i);
+      } else {
+        i += 1;
+      };
+    };
     this.Schedule();
+  }
+
+  // Probe entry points, reached from the CET console through the bridge.
+  public func ProbeSpots(radius: Float) -> String {
+    return this.m_probe.StartSpots(radius);
+  }
+
+  public func ProbeUse(record: String, index: Int32) -> String {
+    return this.m_probe.StartUse(record, index);
+  }
+
+  public func ProbeCleanup() -> String {
+    return this.m_probe.Cleanup();
+  }
+
+  public func AttachProbe(record: String, homeId: String) -> String {
+    let msg: String = this.m_probe.SpawnOnly(record);
+    let id: EntityID = this.m_probe.ProbeEntityId();
+    if !EntityID.IsDefined(id) { return msg; };
+    return this.Attach(id, homeId, "") ? "attached probe NPC to " + homeId : "attach failed; see log";
+  }
+
+  public func ListHomes() -> String {
+    let out: String = "";
+    let h: ref<Home>;
+    let homes: array<ref<Home>> = this.m_registry.GetHomes();
+    for h in homes {
+      out += h.id + " rules=" + h.rulesName + (h.hasSpawn ? " spawn=" + h.spawnRecord : " attach-only") + "\n";
+    };
+    return out;
+  }
+
+  public func ListControllers() -> String {
+    let out: String = "";
+    let c: ref<RoamController>;
+    for c in this.m_controllers {
+      out += c.Describe() + "\n";
+    };
+    return StrLen(out) == 0 ? "no NPCs attached\n" : out;
+  }
+
+  // Discovery is one pass per home per session, shared by every NPC in it.
+  private func EnsureDiscovery(home: ref<Home>) -> ref<SpotDiscovery> {
+    let i: Int32 = 0;
+    while i < ArraySize(this.m_discoveryHomes) {
+      if Equals(this.m_discoveryHomes[i], home.id) { return this.m_discoveries[i]; };
+      i += 1;
+    };
+    let d: ref<SpotDiscovery> = new SpotDiscovery();
+    d.Start(home.bounds, home.id);
+    ArrayPush(this.m_discoveries, d);
+    ArrayPush(this.m_discoveryHomes, home.id);
+    return d;
+  }
+
+  public func IsDiscoveryReady(home: ref<Home>) -> Bool {
+    let d: ref<SpotDiscovery> = this.EnsureDiscovery(home);
+    return d.IsDone() || d.IsFailed();
+  }
+
+  // Discovered spots after exclude and retag, then the home's manual spots.
+  public func SpotsFor(home: ref<Home>) -> array<ref<Spot>> {
+    let out: array<ref<Spot>>;
+    let d: ref<SpotDiscovery> = this.EnsureDiscovery(home);
+    if !d.IsDone() && !d.IsFailed() { return out; };
+    let found: array<ref<Spot>> = d.GetSpots();
+    let s: ref<Spot>;
+    for s in found {
+      let excluded: Bool = false;
+      let ex: String;
+      for ex in home.exclude {
+        if Equals(ex, s.nodeKey) { excluded = true; };
+      };
+      if !excluded {
+        let i: Int32 = 0;
+        while i < ArraySize(home.retagKeys) {
+          if Equals(home.retagKeys[i], s.nodeKey) { s.activity = home.retagValues[i]; };
+          i += 1;
+        };
+        ArrayPush(out, s);
+      };
+    };
+    let m: ref<Spot>;
+    for m in home.extraSpots {
+      ArrayPush(out, m);
+    };
+    return out;
+  }
+
+  private func FindController(id: EntityID) -> ref<RoamController> {
+    let c: ref<RoamController>;
+    for c in this.m_controllers {
+      if Equals(c.EntityId(), id) { return c; };
+    };
+    return null;
+  }
+
+  public func Attach(entityId: EntityID, homeId: String, rulesName: String) -> Bool {
+    if !IsDefined(this.m_registry) {
+      HomebodyLog.Warn("attach: system not ready");
+      return false;
+    };
+    let home: ref<Home> = this.m_registry.FindHome(homeId);
+    if !IsDefined(home) {
+      HomebodyLog.Warn("attach: unknown home " + homeId);
+      return false;
+    };
+    if IsDefined(this.FindController(entityId)) {
+      HomebodyLog.Warn("attach: " + EntityID.ToDebugString(entityId) + " is already attached");
+      return false;
+    };
+    let rname: String = StrLen(rulesName) > 0 ? rulesName : home.rulesName;
+    let rules: ref<Rules> = this.m_registry.FindRules(rname);
+    if !IsDefined(rules) {
+      HomebodyLog.Warn("attach: rules " + rname + " not found for " + homeId + "; default in use");
+      rules = this.m_registry.FindRules("default");
+    };
+    let c: ref<RoamController> = new RoamController();
+    c.Init(entityId, home, rules, this.m_registry.GetConfig());
+    ArrayPush(this.m_controllers, c);
+    this.EnsureDiscovery(home);
+    HomebodyLog.Info("attached " + EntityID.ToDebugString(entityId) + " to " + homeId + " (rules " + rname + ")");
+    return true;
+  }
+
+  public func Detach(entityId: EntityID) -> Void {
+    let i: Int32 = 0;
+    while i < ArraySize(this.m_controllers) {
+      if Equals(this.m_controllers[i].EntityId(), entityId) {
+        this.m_controllers[i].Shutdown();
+        ArrayErase(this.m_controllers, i);
+        HomebodyLog.Info("detached " + EntityID.ToDebugString(entityId));
+        return;
+      };
+      i += 1;
+    };
+  }
+
+  public func Pause(entityId: EntityID, why: String) -> Bool {
+    let c: ref<RoamController> = this.FindController(entityId);
+    if !IsDefined(c) { return false; };
+    c.Pause(StrLen(why) > 0 ? why : "api");
+    return true;
+  }
+
+  public func Resume(entityId: EntityID) -> Bool {
+    let c: ref<RoamController> = this.FindController(entityId);
+    if !IsDefined(c) { return false; };
+    c.Resume();
+    return true;
+  }
+
+  public func GetState(entityId: EntityID) -> CName {
+    let c: ref<RoamController> = this.FindController(entityId);
+    return IsDefined(c) ? c.GetState() : n"Detached";
   }
 }

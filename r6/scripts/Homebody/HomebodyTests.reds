@@ -175,11 +175,30 @@ public func HomebodySchedulerTests(t: ref<HomebodyTest>) -> Void {
   t.AssertEqS(d9.spot.nodeKey, "c", "sch/gap-hour-high-roll-last");
 }
 
+public func HomebodyOccupancyTests(t: ref<HomebodyTest>) -> Void {
+  let spots: array<ref<Spot>>;
+  ArrayPush(spots, HomebodySpot("a", "sit", 1.0));
+  ArrayPush(spots, HomebodySpot("b", "sit", 5.0));
+  ArrayPush(spots, HomebodySpot("c", "sit", 9.0));
+  let taken: array<Vector4>;
+  ArrayPush(taken, new Vector4(5.6, 0.0, 0.0, 1.0));
+  let free: array<ref<Spot>> = Occupancy.Free(spots, taken, 1.0);
+  t.AssertEqI(ArraySize(free), 2, "occ/one-taken");
+  t.AssertEqS(free[0].nodeKey, "a", "occ/first-kept");
+  t.AssertEqS(free[1].nodeKey, "c", "occ/last-kept");
+  let nobody: array<Vector4>;
+  t.AssertEqI(ArraySize(Occupancy.Free(spots, nobody, 1.0)), 3, "occ/none-taken");
+  ArrayPush(taken, new Vector4(1.0, 0.9, 0.0, 1.0));
+  ArrayPush(taken, new Vector4(9.0, 0.0, 1.1, 1.0));
+  t.AssertEqI(ArraySize(Occupancy.Free(spots, taken, 1.0)), 1, "occ/tolerance-edge");
+}
+
 public func HomebodyRunSelfTests() -> String {
   let t: ref<HomebodyTest> = new HomebodyTest();
   t.AssertEqI(1, 1, "harness/smoke");
   HomebodyClassifierTests(t);
   HomebodyRegistryTests(t);
   HomebodySchedulerTests(t);
+  HomebodyOccupancyTests(t);
   return t.Report();
 }

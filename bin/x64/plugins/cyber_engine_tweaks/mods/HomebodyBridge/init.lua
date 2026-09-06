@@ -46,6 +46,22 @@ function Homebody.Homes()
 " .. sys:ListHomes())
 end
 
+-- Spawns one NPC beside the player and attaches it to a home from the
+-- registry (default "example"), so the roaming loop can be watched
+-- without a consumer mod. Cleanup() removes it.
+function Homebody.AttachProbe(homeId, record)
+    local sys = system()
+    if not sys then say("system not available"); return end
+    say(sys:AttachProbe(record or "Character.NurseFemale", homeId or "example"))
+end
+
+-- Lists every attached NPC with its state and what it is doing.
+function Homebody.Status()
+    local sys = system()
+    if not sys then say("system not available"); return end
+    say("\n" .. sys:ListControllers())
+end
+
 registerForEvent("onInit", function()
     local ok, err = pcall(function() say("bridge loaded") end)
     if not ok then say("onInit failed: " .. tostring(err)) end

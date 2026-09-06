@@ -28,6 +28,10 @@ public class Driver extends IScriptable {
 
   public func Label() -> String { return this.m_label; }
   public func IsUsingSpot() -> Bool { return this.m_stage == 2 || this.m_stage == 3 || this.m_stage == 6; }
+  // True in every stage where finding the NPC in a workspot is expected,
+  // including the approach: the native command seats the NPC before the
+  // driver's next tick sees it.
+  public func ExpectsWorkspot() -> Bool { return this.m_stage >= 1 && this.m_stage <= 6; }
   public func IsActive() -> Bool { return this.m_stage != 0; }
   public func Stage() -> Int32 { return this.m_stage; }
   public func CurrentDecision() -> ref<Decision> { return this.m_decision; }

@@ -49,6 +49,24 @@ scripts compiled.
    sectors were skipped by category. Record under Findings any furniture
    the classifier calls idle, with its path, and the new sector counts.
 
+6. Stand inside the Downtown apartment (the example home is its corridor,
+   centre (-1607, 367, 49.2), radius 6, and the spawn point is inside the
+   apartment). Console: `GetMod("HomebodyBridge").AttachProbe()`. Expect
+   `attached ... to example`, `example discovery ...`, `example/... has K
+   spots`, then `outside the home boundary; walking back`, then a stream of
+   `native use <activity> <key> for N s`, `in spot ... after X s`, and the
+   next decision after the duration. With `debug` on, `skips N occupied
+   spots` appears whenever a resident is on the bench. Watch for five
+   minutes: the NPC should use at least two different pieces of furniture,
+   never sit on a resident, and never leave the corridor. Console
+   `GetMod("HomebodyBridge").Status()` prints the controller's state.
+   Record the sequence under Findings.
+
+7. Draw a weapon near the NPC, or start a conversation with any NPC
+   nearby. Expect `paused (combat)` or `paused (scene)`, then `resumed
+   after ...` when it ends. Then `GetMod("HomebodyBridge").Cleanup()`;
+   expect `entity gone for 10 s; controller lost`.
+
 ## Findings
 
 2026-09-05, 0.0.2, step 2: the probe ran but the streaming world object
