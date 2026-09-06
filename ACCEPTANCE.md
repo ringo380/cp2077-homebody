@@ -75,6 +75,25 @@ scripts compiled.
    home on demand; `Cleanup()` removes it and its controller reports
    `entity gone for 10 s; controller lost`.
 
+9. Attach an NPC another mod spawned. With Appearance Menu Mod, spawn any
+   NPC inside the corridor, find its handle in AMM's spawned list, then in
+   the console `GetMod("HomebodyBridge").Attach(handle, "example")`. Expect
+   `attached ... to example` and the routine on that NPC;
+   `GetMod("HomebodyBridge").State(handle)` prints Moving or InSpot.
+
+10. Settings > Mods shows Homebody. Turning Enabled off logs `paused
+    (disabled)` for each attached NPC; on again logs `resumed after
+    disabled`.
+
+11. From 0.0.8 the discovery-done line is followed by `discovery census
+    inside the boundary: <class> <count>, ...` and `discovery entities: N
+    entity or device nodes, A live by hash, B live by node ref, W with a
+    workspot component, D device spots`, then one `device spot` line per
+    workspot component found. Record all of it under Findings; it decides
+    whether device furniture (the couch, bed and shower of a player
+    apartment) can be driven. Run it once in the corridor and once with a
+    home whose bounds cover the apartment interior.
+
 ## Findings
 
 2026-09-05, 0.0.2, step 2: the probe ran but the streaming world object
