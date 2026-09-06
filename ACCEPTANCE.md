@@ -142,3 +142,18 @@ of engine time had passed (the game was paused for the screenshot), so the
 fast-exit signal was sent to an NPC who had left on her own, or was pushed
 off by the resident. The driver's exit path still needs a run where the
 NPC is alone in the spot.
+
+2026-09-06, 0.0.7, steps 4 to 6. Step 4 passed: `registry: 1 homes, 1
+rules`, no device entity warning, so the manual path is available. Step 5:
+`passed=76 failed=2`; both failures were `occ/none-taken` and
+`occ/tolerance-edge`, which measured a returned array inline, and are
+rewritten in 0.0.8 to bind it first. Step 6 passed: `example: spawned
+Character.NurseFemale dynamic: '10324959'`, `attached ... to example`,
+`327 of 24132 sectors intersect the boundary (2417 skipped by category,
+2732 with a box over 400 m)`, by category Exterior 294 Interior 33 Quest
+2404 Navigation 10 AlwaysLoaded 3, by level 2493 63 51 47 45 19 26.
+`discovery done: 5 spots in 327 sectors, 207720 nodes seen` came four
+minutes after the attach, so the load is still too slow; 0.0.8 keeps
+level 0 sectors only. Then `outside the home boundary; walking back`,
+`wanders 12.2 m`, `native use sit 4491241521636031788 for 99 s (sent
+true)`, `in spot ... after 5.6 s`. The whole loop runs.
