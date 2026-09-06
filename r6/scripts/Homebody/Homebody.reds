@@ -24,6 +24,7 @@ public class HomebodySystem extends ScriptableSystem {
   private let m_controllers: array<ref<RoamController>>;
   private let m_discoveries: array<ref<SpotDiscovery>>;
   private let m_discoveryHomes: array<String>;
+  private let m_spawner: ref<Spawner>;
 
   public static func Get(gi: GameInstance) -> ref<HomebodySystem> {
     return GameInstance.GetScriptableSystemsContainer(gi)
@@ -46,6 +47,8 @@ public class HomebodySystem extends ScriptableSystem {
       HomebodyLog.Warn("device entity " + cfg.deviceEntity + " not found; manual path and extraSpots disabled");
     };
     this.m_probe = new HomebodyProbe();
+    this.m_spawner = new Spawner();
+    this.m_spawner.Init(this);
     if cfg.runSelfTest {
       HomebodyLog.Info("self-test\n" + HomebodyRunSelfTests());
     };
@@ -55,6 +58,7 @@ public class HomebodySystem extends ScriptableSystem {
   // A new session streams different sectors, so discovery starts over.
   private func OnDetach() -> Void {
     this.m_gen += 1;
+    if IsDefined(this.m_spawner) { this.m_spawner.DespawnAll(); };
     let c: ref<RoamController>;
     for c in this.m_controllers { c.Shutdown(); };
     ArrayClear(this.m_controllers);
@@ -118,6 +122,8 @@ public class HomebodySystem extends ScriptableSystem {
         i += 1;
       };
     };
+    let player: ref<PlayerPuppet> = GetPlayer(gi);
+    if IsDefined(player) { this.m_spawner.Tick(this.m_registry.GetHomes(), player.GetWorldPosition(), now); };
     this.Schedule();
   }
 

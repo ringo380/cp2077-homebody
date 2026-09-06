@@ -49,9 +49,10 @@ scripts compiled.
    sectors were skipped by category. Record under Findings any furniture
    the classifier calls idle, with its path, and the new sector counts.
 
-6. Stand inside the Downtown apartment (the example home is its corridor,
-   centre (-1607, 367, 49.2), radius 6, and the spawn point is inside the
-   apartment). Console: `GetMod("HomebodyBridge").AttachProbe()`. Expect
+6. Load a save inside the Downtown apartment. The example home is its
+   corridor, centre (-1607, 367, 49.2), radius 6, with a spawn point inside
+   the apartment, so the resident spawns on her own as soon as you are
+   within 40 m: expect `example: spawned Character.NurseFemale`,
    `attached ... to example`, `example discovery ...`, `example/... has K
    spots`, then `outside the home boundary; walking back`, then a stream of
    `native use <activity> <key> for N s`, `in spot ... after X s`, and the
@@ -64,8 +65,15 @@ scripts compiled.
 
 7. Draw a weapon near the NPC, or start a conversation with any NPC
    nearby. Expect `paused (combat)` or `paused (scene)`, then `resumed
-   after ...` when it ends. Then `GetMod("HomebodyBridge").Cleanup()`;
-   expect `entity gone for 10 s; controller lost`.
+   after ...` when it ends.
+
+8. Walk away from the corridor beyond 70 m: expect `example: despawned
+   (range)`. Walk back within 40 m: she spawns again and the routine
+   restarts. Reload a save inside the apartment: she spawns again within a
+   few seconds and no `revoked` line appears in `redfilesystem-*.log`.
+   `GetMod("HomebodyBridge").AttachProbe()` adds a second NPC to the same
+   home on demand; `Cleanup()` removes it and its controller reports
+   `entity gone for 10 s; controller lost`.
 
 ## Findings
 
