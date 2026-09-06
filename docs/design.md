@@ -69,14 +69,28 @@ drive every decision below.
   `RegisterCallback`. A node ref only resolves (`ResolveNodeRef`,
   `GlobalNodeRef.IsDefined`) while its sector is streamed in, which holds
   when the player is at the home.
-- The proven manual path. AMM and entSpawner spawn
-  `base\spawner\workspot_device.ent`, set its `workspot` component's
+- The proven manual path. AMM and entSpawner spawn an invisible device
+  entity that carries a workspot component, set that component's
   `workspotResource`, and call
   `WorkspotGameSystem.PlayInDeviceSimple(device, npc, false, "workspot", ...)`,
   polling `IsActorInWorkspot` and `GetExtendedInfo(npc).exiting`, and
   ending with `SendFastExitSignal` or `StopInDevice`. Movement is
   `AIMoveToCommand` with an `AIPositionSpec`, `movementType` Walk,
-  `finishWhenDestinationReached`.
+  `finishWhenDestinationReached`. Neither device entity is vanilla:
+  entSpawner ships `base\spawner\workspot_device.ent` (component
+  `workspot`) in its `baseEntity.archive`, and AMM ships
+  `base\amm_workspots\entity\workspot_anim.ent` (component
+  `amm_workspot_base`) in its props archive, verified against the install's
+  archives on 2026-09-05. Homebody therefore treats the manual path as
+  optional: the device entity path and component name are settings in
+  `config.json`, defaulting to entSpawner's, checked with
+  `ResourceDepot.ResourceExists` at load. When the entity is missing the
+  manual path is disabled with a log line and only discovered spots are
+  used. Shipping a Homebody-owned device archive is a later phase.
+- RedFileSystem lists files with `FileSystemStorage.GetFiles()`, which
+  returns the files of the storage root. Homes and rules are therefore
+  flat files in the storage root, `home.<id>.json` and
+  `rules.<name>.json`, not subfolders.
 - Spawning. Codeware's `DynamicEntitySystem.CreateEntity(DynamicEntitySpec)`
   with `recordID`, `position`, `orientation`, and `alwaysSpawned`;
   `DeleteEntity(id)` to remove; entity re-fetched by id each tick.
@@ -97,7 +111,7 @@ job is talking to the game.
 
 ### HomeRegistry
 
-Loads every `homes/*.json` at script load (Codeware `ScriptableService`
+Loads every `home.*.json` and `rules.*.json` in the storage root (Codeware `ScriptableService`
 `OnLoad`, where storage is granted once per process). Validates each file
 field by field. A bad file is logged with its name and the offending field
 and skipped; the other homes still load. Holds `Home` records in memory.
