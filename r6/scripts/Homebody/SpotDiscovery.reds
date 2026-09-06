@@ -146,11 +146,18 @@ public class SpotDiscovery extends IScriptable {
     this.m_state = DiscoveryState.LoadingBlocks;
   }
 
-  // Furniture lives in exterior and interior sectors. Quest sectors are
-  // numerous and carry world-sized boxes, so a small boundary intersects
-  // thousands of them; navigation sectors hold navmesh only. Both are skipped.
+  // Furniture lives in exterior and interior sectors at streaming level 0.
+  // Quest sectors are numerous and carry world-sized boxes, so a small
+  // boundary intersects thousands of them; navigation sectors hold navmesh
+  // only; exterior sectors at level 1 and up are distance proxies with
+  // boxes hundreds of metres wide (2026-09-06: 2732 of 2744 intersecting
+  // boxes were over 400 m, 251 of them at level 1 to 6). All are skipped.
   private func WantsCategory(c: worldStreamingSectorCategory) -> Bool {
     return Equals(c, worldStreamingSectorCategory.Exterior) || Equals(c, worldStreamingSectorCategory.Interior);
+  }
+
+  private func WantsSector(d: worldStreamingSectorDescriptor) -> Bool {
+    return this.WantsCategory(d.category) && Cast<Int32>(d.level) == 0;
   }
 
   private static func BoxExtent(b: Box) -> Float {
@@ -188,7 +195,7 @@ public class SpotDiscovery extends IScriptable {
               if cat >= 0 && cat < 8 { byCategory[cat] += 1; };
               if lvl >= 0 && lvl < 8 { byLevel[lvl] += 1; };
               if SpotDiscovery.BoxExtent(d.streamingBox) > 400.0 { huge += 1; };
-              if this.WantsCategory(d.category) {
+              if this.WantsSector(d) {
                 let aref: ResourceAsyncRef = d.data;
                 let path: ResRef = ResourceAsyncRef.GetPath(aref);
                 let st: ref<ResourceToken> = depot.LoadResource(path);
@@ -211,7 +218,7 @@ public class SpotDiscovery extends IScriptable {
       bi += 1;
     };
     HomebodyLog.Info(this.m_label + " discovery: " + IntToString(matched) + " of " + IntToString(total) + " sectors intersect the boundary ("
-      + IntToString(skipped) + " skipped by category, " + IntToString(huge) + " with a box over 400 m)");
+      + IntToString(skipped) + " skipped by category or level, " + IntToString(huge) + " with a box over 400 m)");
     HomebodyLog.Info(this.m_label + " discovery: intersecting sectors by category (Exterior Interior Quest Navigation AlwaysLoaded ...) "
       + SpotDiscovery.Counts(byCategory) + "; by level " + SpotDiscovery.Counts(byLevel));
     if matched == 0 {
