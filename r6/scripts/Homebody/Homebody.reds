@@ -40,6 +40,14 @@ public class HomebodySystem extends ScriptableSystem {
     return this.m_probe.StartSpots(radius);
   }
 
+  public func ProbeUse(record: String, index: Int32) -> String {
+    return this.m_probe.StartUse(record, index);
+  }
+
+  public func ProbeCleanup() -> String {
+    return this.m_probe.Cleanup();
+  }
+
   private func OnDetach() -> Void {
     this.m_gen += 1;
     HomebodyLog.Info("detached");

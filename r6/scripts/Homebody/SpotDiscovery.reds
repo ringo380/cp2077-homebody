@@ -3,22 +3,27 @@ import Codeware.*
 
 public enum DiscoveryState {
   Idle = 0,
-  LoadingBlocks = 1,
-  LoadingSectors = 2,
-  Reading = 3,
-  Done = 4,
-  Failed = 5
+  LoadingWorld = 1,
+  LoadingBlocks = 2,
+  LoadingSectors = 3,
+  Reading = 4,
+  Done = 5,
+  Failed = 6
 }
 
-// Finds the world AI spots inside a boundary. The streaming world lists its
-// blocks, each block lists sectors with a bounding box, and each sector lists
-// its nodes with a transform and a node reference. Everything loads through
-// resource tokens that are polled on the tick rather than through callbacks,
-// so a wrong callback signature cannot fail silently. Two sectors are read
-// per tick to keep a hitch off the frame.
+// Finds the world AI spots inside a boundary. The streaming world resource
+// lists its blocks, each block lists sectors with a bounding box, and each
+// sector lists its nodes with a transform and a node reference. The world
+// object the running game hands back reports no block refs, so the world is
+// loaded again from the depot by path, and if that copy lists none either
+// the single all-blocks resource is loaded directly. Everything loads
+// through resource tokens that are polled on the tick rather than through
+// callbacks, so a wrong callback signature cannot fail silently. Two sectors
+// are read per tick to keep a hitch off the frame.
 public class SpotDiscovery extends IScriptable {
   private let m_state: DiscoveryState;
   private let m_bounds: ref<Bounds>;
+  private let m_worldToken: ref<ResourceToken>;
   private let m_blockTokens: array<ref<ResourceToken>>;
   private let m_sectorTokens: array<ref<ResourceToken>>;
   private let m_nextSector: Int32;
@@ -26,6 +31,17 @@ public class SpotDiscovery extends IScriptable {
   private let m_sectorsRead: Int32;
   private let m_nodesSeen: Int32;
   private let m_label: String;
+
+  // The cooked world and its block list. Night City is the only world the
+  // game streams during play; both paths were verified against the base
+  // archives.
+  public static func WorldPath() -> String {
+    return "base\\worlds\\03_night_city\\_compiled\\default\\03_night_city.streamingworld";
+  }
+
+  public static func AllBlocksPath() -> String {
+    return "base\\worlds\\03_night_city\\_compiled\\default\\blocks\\all.streamingblock";
+  }
 
   public func Start(bounds: ref<Bounds>, label: String) -> Void {
     this.m_bounds = bounds;
@@ -36,31 +52,21 @@ public class SpotDiscovery extends IScriptable {
     this.m_nextSector = 0;
     this.m_sectorsRead = 0;
     this.m_nodesSeen = 0;
-    let wss: ref<WorldStateSystem> = GameInstance.GetWorldStateSystem();
-    if !IsDefined(wss) {
-      this.Fail("no WorldStateSystem");
-      return;
-    };
-    let world: ref<worldStreamingWorld> = wss.GetStreamingWorld();
-    if !IsDefined(world) {
-      this.Fail("no streaming world");
-      return;
-    };
     let depot: ref<ResourceDepot> = GameInstance.GetResourceDepot();
-    let blocks: array<ResourceRef> = world.blockRefs;
-    let i: Int32 = 0;
-    while i < ArraySize(blocks) {
-      let r: ResourceRef = blocks[i];
-      let path: ResRef = ResourceRef.GetPath(r);
-      let tok: ref<ResourceToken> = depot.LoadResource(path);
-      if IsDefined(tok) { ArrayPush(this.m_blockTokens, tok); };
-      i += 1;
+    if !IsDefined(depot) {
+      this.Fail("no ResourceDepot");
+      return;
     };
-    HomebodyLog.Info(this.m_label + " discovery: " + IntToString(ArraySize(this.m_blockTokens)) + " streaming blocks");
-    this.m_state = DiscoveryState.LoadingBlocks;
+    this.m_worldToken = depot.LoadResource(ResRef.FromString(SpotDiscovery.WorldPath()));
+    if !IsDefined(this.m_worldToken) {
+      this.Fail("LoadResource returned no token for the streaming world");
+      return;
+    };
+    this.m_state = DiscoveryState.LoadingWorld;
   }
 
   public func Tick() -> Void {
+    if Equals(this.m_state, DiscoveryState.LoadingWorld) { this.TickWorld(); return; };
     if Equals(this.m_state, DiscoveryState.LoadingBlocks) { this.TickBlocks(); return; };
     if Equals(this.m_state, DiscoveryState.LoadingSectors) { this.TickSectors(); return; };
     if Equals(this.m_state, DiscoveryState.Reading) { this.TickRead(); return; };
@@ -84,6 +90,42 @@ public class SpotDiscovery extends IScriptable {
       if !t.IsFinished() { return false; };
     };
     return true;
+  }
+
+  private func TickWorld() -> Void {
+    if !this.m_worldToken.IsFinished() { return; };
+    let depot: ref<ResourceDepot> = GameInstance.GetResourceDepot();
+    let fromWorld: Int32 = 0;
+    if this.m_worldToken.IsLoaded() {
+      let world: ref<worldStreamingWorld> = this.m_worldToken.GetResource() as worldStreamingWorld;
+      if IsDefined(world) {
+        let blocks: array<ResourceRef> = world.blockRefs;
+        let i: Int32 = 0;
+        while i < ArraySize(blocks) {
+          let r: ResourceRef = blocks[i];
+          let path: ResRef = ResourceRef.GetPath(r);
+          let tok: ref<ResourceToken> = depot.LoadResource(path);
+          if IsDefined(tok) {
+            ArrayPush(this.m_blockTokens, tok);
+            fromWorld += 1;
+          };
+          i += 1;
+        };
+      };
+    } else {
+      HomebodyLog.Warn(this.m_label + " discovery: streaming world failed to load from " + SpotDiscovery.WorldPath());
+    };
+    if fromWorld == 0 {
+      let tok: ref<ResourceToken> = depot.LoadResource(ResRef.FromString(SpotDiscovery.AllBlocksPath()));
+      if IsDefined(tok) { ArrayPush(this.m_blockTokens, tok); };
+    };
+    HomebodyLog.Info(this.m_label + " discovery: " + IntToString(ArraySize(this.m_blockTokens)) + " streaming blocks ("
+      + IntToString(fromWorld) + " from the world resource)");
+    if ArraySize(this.m_blockTokens) == 0 {
+      this.Fail("no streaming blocks could be requested");
+      return;
+    };
+    this.m_state = DiscoveryState.LoadingBlocks;
   }
 
   private func TickBlocks() -> Void {
@@ -113,7 +155,11 @@ public class SpotDiscovery extends IScriptable {
             };
             di += 1;
           };
+        } else {
+          HomebodyLog.Warn(this.m_label + " discovery: block loaded but is not a worldStreamingBlock: " + ResRef.ToString(bt.GetPath()));
         };
+      } else {
+        HomebodyLog.Warn(this.m_label + " discovery: block failed to load: " + ResRef.ToString(bt.GetPath()));
       };
       bi += 1;
     };

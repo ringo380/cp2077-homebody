@@ -22,6 +22,22 @@ function Homebody.Probe(radius)
     say(sys:ProbeSpots(tonumber(radius) or 15.0))
 end
 
+-- Spawns one NPC beside the player and sends it to spot number index from
+-- the last Probe listing (the first line is 0) with the engine's own
+-- use-workspot command. Default record Character.NurseFemale.
+function Homebody.Use(index, record)
+    local sys = system()
+    if not sys then say("system not available"); return end
+    say(sys:ProbeUse(record or "Character.NurseFemale", tonumber(index) or 0))
+end
+
+-- Removes every NPC the probe spawned.
+function Homebody.Cleanup()
+    local sys = system()
+    if not sys then say("system not available"); return end
+    say(sys:ProbeCleanup())
+end
+
 registerForEvent("onInit", function()
     local ok, err = pcall(function() say("bridge loaded") end)
     if not ok then say("onInit failed: " .. tostring(err)) end
