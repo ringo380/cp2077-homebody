@@ -270,7 +270,7 @@ systems container, pcall guarded and re-fetched per call.
 - `cooldownSeconds`: a spot used within this window weighs zero.
 - `wanderRadius`: metres around the home center for wander targets.
 
-A `default.json` ships with the mod.
+A `rules.default.json` ships with the mod.
 
 ### Runtime records, in memory only
 
