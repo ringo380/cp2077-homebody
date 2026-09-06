@@ -214,7 +214,7 @@ systems container, pcall guarded and re-fetched per call.
 
 ## Data
 
-### Home file, `r6/storages/Homebody/homes/<id>.json`
+### Home file, `r6/storages/Homebody/home.<id>.json`
 
 ```json
 {
@@ -245,7 +245,7 @@ systems container, pcall guarded and re-fetched per call.
   classify.
 - `rules`: optional rules name, default `default`.
 
-### Rules file, `r6/storages/Homebody/rules/<name>.json`
+### Rules file, `r6/storages/Homebody/rules.<name>.json`
 
 ```json
 {
@@ -379,8 +379,9 @@ r6/scripts/Homebody/
   Api.reds
   HomebodySettings.reds
   HomebodyTests.reds
-r6/storages/Homebody/homes/example.json
-r6/storages/Homebody/rules/default.json
+r6/storages/Homebody/home.example.json
+r6/storages/Homebody/rules.default.json
+r6/storages/Homebody/config.json
 bin/x64/plugins/cyber_engine_tweaks/mods/HomebodyBridge/init.lua
 docs/design.md
 README.md  ACCEPTANCE.md  LICENSE
