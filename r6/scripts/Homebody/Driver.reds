@@ -174,9 +174,14 @@ public class Driver extends IScriptable {
       let st: AICommandState = ai.GetCommandState(this.m_useCmd);
       let ended: Bool = Equals(st, AICommandState.Failure) || Equals(st, AICommandState.Cancelled) || Equals(st, AICommandState.Interrupted);
       if ended || elapsed > this.m_cfg.nativeTimeoutSeconds {
+        // An instant Failure says more about the NPC's state (a reaction,
+        // a leftover behaviour) than about the spot, so a spot is written
+        // off for the native path only on its second failure.
+        d.spot.nativeFailures += 1;
+        d.spot.nativeFailed = d.spot.nativeFailures >= 2;
         HomebodyLog.Warn(this.m_label + " native path failed for " + d.spot.nodeKey + " (state " + IntToString(EnumInt(st))
-          + ", " + FloatToStringPrec(elapsed, 0) + " s); marking native-failed");
-        d.spot.nativeFailed = true;
+          + ", " + FloatToStringPrec(elapsed, 0) + " s, failure " + IntToString(d.spot.nativeFailures) + ")"
+          + (d.spot.nativeFailed ? "; marking native-failed" : ""));
         this.EndCommands(ai);
         if this.m_cfg.manualPathAvailable && !this.m_manualRetry {
           this.m_manualRetry = true;
@@ -273,6 +278,7 @@ public class Driver extends IScriptable {
     if this.m_stage == 6 {
       if elapsed >= d.duration || (!inSpot && elapsed > 3.0) {
         if inSpot { wss.StopInDevice(puppet); };
+        HomebodyLog.Info(this.m_label + (inSpot ? " leaves " : " was out of ") + d.spot.nodeKey + " after " + FloatToStringPrec(elapsed, 0) + " s (manual)");
         this.DeleteDevice();
         this.m_stage = 0;
         return this.Result(DriverOutcome.Done, "manual");

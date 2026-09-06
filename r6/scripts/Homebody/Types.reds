@@ -21,6 +21,7 @@ public class Spot extends IScriptable {
   public let lastUsedAt: Float;
   public let unreachable: Bool;
   public let nativeFailed: Bool;
+  public let nativeFailures: Int32;
   // Device spots: the live furniture entity and the workspot component
   // on it to play in.
   public let deviceId: EntityID;

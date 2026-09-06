@@ -157,3 +157,14 @@ minutes after the attach, so the load is still too slow; 0.0.8 keeps
 level 0 sectors only. Then `outside the home boundary; walking back`,
 `wanders 12.2 m`, `native use sit 4491241521636031788 for 99 s (sent
 true)`, `in spot ... after 5.6 s`. The whole loop runs.
+Later in the same run: she stood up by herself after 32 s and 35 s in the
+two bench spots (`left spot ... on its own`), with nobody near her, so the
+scheduled durations of 99 s and 85 s were never reached; the bench
+workspots seem to end on their own. The third and fourth native commands
+then failed instantly (`state 6, 0 s`) and the manual path took over
+(`manual walk`, `manual play <path>` one second later, full duration, no
+exit line yet). Whether the manual animations were visible is not known.
+0.0.8 writes a spot off for the native path only on its second failure,
+and logs the manual exit. Open questions for the 0.0.8 run: why the native
+command fails instantly after a self-ended workspot, and whether re-sending
+it after a short idle recovers.
