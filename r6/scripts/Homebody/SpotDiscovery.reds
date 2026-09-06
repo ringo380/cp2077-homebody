@@ -128,11 +128,31 @@ public class SpotDiscovery extends IScriptable {
     this.m_state = DiscoveryState.LoadingBlocks;
   }
 
+  // Furniture lives in exterior and interior sectors. Quest sectors are
+  // numerous and carry world-sized boxes, so a small boundary intersects
+  // thousands of them; navigation sectors hold navmesh only. Both are skipped.
+  private func WantsCategory(c: worldStreamingSectorCategory) -> Bool {
+    return Equals(c, worldStreamingSectorCategory.Exterior) || Equals(c, worldStreamingSectorCategory.Interior);
+  }
+
+  private static func BoxExtent(b: Box) -> Float {
+    let x: Float = b.Max.X - b.Min.X;
+    let y: Float = b.Max.Y - b.Min.Y;
+    let z: Float = b.Max.Z - b.Min.Z;
+    return MaxF(x, MaxF(y, z));
+  }
+
   private func TickBlocks() -> Void {
     if !this.AllFinished(this.m_blockTokens) { return; };
     let depot: ref<ResourceDepot> = GameInstance.GetResourceDepot();
     let matched: Int32 = 0;
     let total: Int32 = 0;
+    let skipped: Int32 = 0;
+    let huge: Int32 = 0;
+    let byCategory: array<Int32>;
+    let byLevel: array<Int32>;
+    let k: Int32 = 0;
+    while k < 8 { ArrayPush(byCategory, 0); ArrayPush(byLevel, 0); k += 1; };
     let bi: Int32 = 0;
     while bi < ArraySize(this.m_blockTokens) {
       let bt: ref<ResourceToken> = this.m_blockTokens[bi];
@@ -145,12 +165,21 @@ public class SpotDiscovery extends IScriptable {
             let d: worldStreamingSectorDescriptor = descs[di];
             total += 1;
             if this.m_bounds.IntersectsBox(d.streamingBox) {
-              let aref: ResourceAsyncRef = d.data;
-              let path: ResRef = ResourceAsyncRef.GetPath(aref);
-              let st: ref<ResourceToken> = depot.LoadResource(path);
-              if IsDefined(st) {
-                ArrayPush(this.m_sectorTokens, st);
-                matched += 1;
+              let cat: Int32 = EnumInt(d.category);
+              let lvl: Int32 = Cast<Int32>(d.level);
+              if cat >= 0 && cat < 8 { byCategory[cat] += 1; };
+              if lvl >= 0 && lvl < 8 { byLevel[lvl] += 1; };
+              if SpotDiscovery.BoxExtent(d.streamingBox) > 400.0 { huge += 1; };
+              if this.WantsCategory(d.category) {
+                let aref: ResourceAsyncRef = d.data;
+                let path: ResRef = ResourceAsyncRef.GetPath(aref);
+                let st: ref<ResourceToken> = depot.LoadResource(path);
+                if IsDefined(st) {
+                  ArrayPush(this.m_sectorTokens, st);
+                  matched += 1;
+                };
+              } else {
+                skipped += 1;
               };
             };
             di += 1;
@@ -163,7 +192,10 @@ public class SpotDiscovery extends IScriptable {
       };
       bi += 1;
     };
-    HomebodyLog.Info(this.m_label + " discovery: " + IntToString(matched) + " of " + IntToString(total) + " sectors intersect the boundary");
+    HomebodyLog.Info(this.m_label + " discovery: " + IntToString(matched) + " of " + IntToString(total) + " sectors intersect the boundary ("
+      + IntToString(skipped) + " skipped by category, " + IntToString(huge) + " with a box over 400 m)");
+    HomebodyLog.Info(this.m_label + " discovery: intersecting sectors by category (Exterior Interior Quest Navigation AlwaysLoaded ...) "
+      + SpotDiscovery.Counts(byCategory) + "; by level " + SpotDiscovery.Counts(byLevel));
     if matched == 0 {
       this.m_state = DiscoveryState.Done;
       return;
@@ -226,12 +258,23 @@ public class SpotDiscovery extends IScriptable {
             s.markings = spotNode.markings;
             s.isInfinite = spotNode.isWorkspotInfinite;
             s.source = SpotSource.Discovered;
-            s.activity = "idle";
+            let cls: ref<ActivityClassifier> = ActivityClassifier.Get();
+            s.activity = IsDefined(cls) ? cls.Classify(s.markings, s.workspotPath) : "idle";
             ArrayPush(this.m_spots, s);
           };
         };
       };
     };
+  }
+
+  private static func Counts(v: array<Int32>) -> String {
+    let out: String = "";
+    let i: Int32 = 0;
+    while i < ArraySize(v) {
+      out += (i > 0 ? " " : "") + IntToString(v[i]);
+      i += 1;
+    };
+    return out;
   }
 
   public static func Describe(s: ref<Spot>) -> String {

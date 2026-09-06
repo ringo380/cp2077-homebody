@@ -14,8 +14,8 @@ local function system()
     return nil
 end
 
--- Lists every furniture spot within radius metres of the player in the
--- redscript log. Default radius 15.
+-- Lists every furniture spot within radius metres of the player in CET's
+-- gamelog.log, which flushes late. Default radius 15.
 function Homebody.Probe(radius)
     local sys = system()
     if not sys then say("system not available"); return end
@@ -36,6 +36,14 @@ function Homebody.Cleanup()
     local sys = system()
     if not sys then say("system not available"); return end
     say(sys:ProbeCleanup())
+end
+
+-- Lists the homes the registry loaded from r6/storages/Homebody.
+function Homebody.Homes()
+    local sys = system()
+    if not sys then say("system not available"); return end
+    say("
+" .. sys:ListHomes())
 end
 
 registerForEvent("onInit", function()

@@ -48,3 +48,19 @@ tick chain starts`, `tick 1`, `tick 120` in gamelog.log; storage granted and
 both breadcrumbs in redfilesystem-2026-09-05-21-37-34.log. Step 2: the
 console returned `probing 15 m around (-1608.2, 354.9, 49.2)`; the probe's
 log lines are recorded below once flushed.
+
+2026-09-06, 0.0.3, step 2 passed. Standing at (-1608.2, 354.9, 49.2) in the
+Downtown apartment with radius 15: `probe discovery: 1 streaming blocks (0
+from the world resource)` (the by-path world copy also lists no block refs,
+so the all-blocks fallback carried it), `2764 of 24132 sectors intersect the
+boundary`, `probe discovery done: 5 spots in 2764 sectors, 387237 nodes
+seen`, `probe: 5 spots listed`. It took three minutes from Probe to the
+listing, almost all of it loading the 2764 sectors. Spot line:
+`probe spot 4491241521636031788 at (-1606.9, 368.5, 49.2) yaw 180 idle
+infinite [dlc6_apart_cct_dtn_ws_corridor_night ]
+base\workspots\archetype\corpo\corpo__sit_chair__sit_around_devastated__01.workspot`.
+Two things the listing shows: markings carry the apartment's own name and a
+time of day (`_morning`, `_evening`, `_night`), and one chair appears as
+several spots at the same position, one per time-of-day marking. 0.0.4 skips
+quest and navigation sectors and logs the intersecting sectors by category
+and level so the load can be cut to the handful that matter.
