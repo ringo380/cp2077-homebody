@@ -93,10 +93,93 @@ public func HomebodyRegistryTests(t: ref<HomebodyTest>) -> Void {
   t.AssertTrue(!far.IntersectsBox(sb), "bounds/sphere-misses-box");
 }
 
+public func HomebodySpot(key: String, activity: String, x: Float) -> ref<Spot> {
+  let s: ref<Spot> = new Spot();
+  s.nodeKey = key;
+  s.activity = activity;
+  s.position = new Vector4(x, 0.0, 0.0, 1.0);
+  s.source = SpotSource.Discovered;
+  s.isInfinite = true;
+  return s;
+}
+
+public func HomebodySchedulerTests(t: ref<HomebodyTest>) -> Void {
+  t.AssertTrue(Scheduler.HourInRange(6, 10, 6), "sch/range-start");
+  t.AssertTrue(!Scheduler.HourInRange(6, 10, 10), "sch/range-end-exclusive");
+  t.AssertTrue(Scheduler.HourInRange(23, 6, 2), "sch/range-wraps");
+  t.AssertTrue(Scheduler.HourInRange(23, 6, 23), "sch/range-wrap-start");
+  t.AssertTrue(!Scheduler.HourInRange(23, 6, 12), "sch/range-wrap-outside");
+  t.AssertTrue(Scheduler.HourInRange(0, 0, 15), "sch/range-equal-all-day");
+
+  let rules: ref<Rules> = HomeRegistry.ParseRules(ParseJson(
+    "{\"phases\":[{\"from\":6,\"to\":12,\"weights\":{\"sit\":2,\"smoke\":1}},{\"from\":12,\"to\":6,\"weights\":{\"sleep\":1}}],\"duration\":{\"sit\":[10,20],\"default\":[5,5]},\"cooldownSeconds\":100,\"wanderRadius\":3}"), "t");
+  let spots: array<ref<Spot>>;
+  ArrayPush(spots, HomebodySpot("a", "sit", 1.0));
+  ArrayPush(spots, HomebodySpot("b", "smoke", 2.0));
+  ArrayPush(spots, HomebodySpot("c", "sleep", 3.0));
+  let center: Vector4 = new Vector4(0.0, 0.0, 0.0, 1.0);
+
+  // Morning: sit weighs 2, smoke 1, sleep 0. roll 0.1 lands on sit, 0.9 on smoke.
+  let d1: ref<Decision> = Scheduler.Decide(spots, 8, rules, 1000.0, center, true, 0.1, 0.5);
+  t.AssertTrue(Equals(d1.kind, DecisionKind.UseSpot), "sch/morning-uses-spot");
+  t.AssertEqS(d1.spot.nodeKey, "a", "sch/morning-low-roll-sit");
+  t.AssertEqF(d1.duration, 15.0, 0.001, "sch/duration-midpoint-of-range");
+  let d2: ref<Decision> = Scheduler.Decide(spots, 8, rules, 1000.0, center, true, 0.9, 0.5);
+  t.AssertEqS(d2.spot.nodeKey, "b", "sch/morning-high-roll-smoke");
+
+  // Night: only sleep has weight.
+  let d3: ref<Decision> = Scheduler.Decide(spots, 2, rules, 1000.0, center, true, 0.5, 0.5);
+  t.AssertEqS(d3.spot.nodeKey, "c", "sch/night-sleep");
+  t.AssertEqF(d3.duration, 5.0, 0.001, "sch/default-duration");
+
+  // Cooldown: a just-used spot weighs zero.
+  spots[0].lastUsedAt = 950.0;
+  let d4: ref<Decision> = Scheduler.Decide(spots, 8, rules, 1000.0, center, true, 0.1, 0.5);
+  t.AssertEqS(d4.spot.nodeKey, "b", "sch/cooldown-skips-recent");
+  spots[0].lastUsedAt = 0.0;
+
+  // Unreachable spots are skipped; native-failed ones only without the manual path.
+  spots[0].unreachable = true;
+  let d5: ref<Decision> = Scheduler.Decide(spots, 8, rules, 1000.0, center, true, 0.1, 0.5);
+  t.AssertEqS(d5.spot.nodeKey, "b", "sch/unreachable-skipped");
+  spots[0].unreachable = false;
+  spots[0].nativeFailed = true;
+  let d5b: ref<Decision> = Scheduler.Decide(spots, 8, rules, 1000.0, center, false, 0.1, 0.5);
+  t.AssertEqS(d5b.spot.nodeKey, "b", "sch/native-failed-skipped-without-manual");
+  let d5c: ref<Decision> = Scheduler.Decide(spots, 8, rules, 1000.0, center, true, 0.1, 0.5);
+  t.AssertEqS(d5c.spot.nodeKey, "a", "sch/native-failed-kept-with-manual");
+  spots[0].nativeFailed = false;
+
+  // Manual spots need the manual path.
+  spots[1].source = SpotSource.Manual;
+  let d6: ref<Decision> = Scheduler.Decide(spots, 8, rules, 1000.0, center, false, 0.9, 0.5);
+  t.AssertEqS(d6.spot.nodeKey, "a", "sch/manual-needs-manual-path");
+  spots[1].source = SpotSource.Discovered;
+
+  // Nothing weighs: wander when the phase allows it, else idle.
+  let empty: array<ref<Spot>>;
+  let d7: ref<Decision> = Scheduler.Decide(empty, 8, rules, 1000.0, center, true, 0.5, 0.5);
+  t.AssertTrue(Equals(d7.kind, DecisionKind.Idle), "sch/no-spots-idle");
+  let wr: ref<Rules> = HomeRegistry.ParseRules(ParseJson(
+    "{\"phases\":[{\"from\":0,\"to\":0,\"weights\":{\"wander\":1}}],\"wanderRadius\":3}"), "w");
+  let d8: ref<Decision> = Scheduler.Decide(empty, 8, wr, 1000.0, center, true, 0.5, 0.25);
+  t.AssertTrue(Equals(d8.kind, DecisionKind.Wander), "sch/wander-when-weighted");
+  t.AssertTrue(Vector4.Distance(d8.target, center) <= 3.001, "sch/wander-within-radius");
+  let d8b: ref<Decision> = Scheduler.Decide(empty, 8, wr, 1000.0, center, true, 0.5, 0.9);
+  t.AssertEqF(Vector4.Distance(d8b.target, center), 3.0, 0.01, "sch/wander-capped-at-radius");
+
+  // Hour outside every phase: everything weighs 1.
+  let gap: ref<Rules> = HomeRegistry.ParseRules(ParseJson("{\"phases\":[{\"from\":1,\"to\":2,\"weights\":{\"sit\":1}}]}"), "g");
+  let d9: ref<Decision> = Scheduler.Decide(spots, 12, gap, 1000.0, center, true, 0.99, 0.5);
+  t.AssertTrue(Equals(d9.kind, DecisionKind.UseSpot), "sch/gap-hour-all-weigh-one");
+  t.AssertEqS(d9.spot.nodeKey, "c", "sch/gap-hour-high-roll-last");
+}
+
 public func HomebodyRunSelfTests() -> String {
   let t: ref<HomebodyTest> = new HomebodyTest();
   t.AssertEqI(1, 1, "harness/smoke");
   HomebodyClassifierTests(t);
   HomebodyRegistryTests(t);
+  HomebodySchedulerTests(t);
   return t.Report();
 }
