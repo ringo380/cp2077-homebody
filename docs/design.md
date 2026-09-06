@@ -235,7 +235,9 @@ systems container, pcall guarded and re-fetched per call.
 - `bounds`: required. Either `center` + `radius`, or `min` + `max` for a
   box. Positions are world coordinates as three floats.
 - `spawn`: optional. `record` is a TweakDB character record; `appearance`
-  may be empty. Absent means attach-only.
+  may be empty; `position` is an optional `[x, y, z]` spawn point that
+  defaults to the boundary center, which in an apartment is often inside a
+  table. Absent means attach-only.
 - `exclude`: optional list of node ref hashes (as decimal strings, since
   Int64 does not survive JSON reliably) to drop from discovery.
 - `retag`: optional map of node ref hash to activity, overriding the
