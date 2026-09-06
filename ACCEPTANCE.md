@@ -35,6 +35,20 @@ scripts compiled.
    Findings; the manual path then leads and the native path becomes the
    optional one. Finish with `GetMod("HomebodyBridge").Cleanup()`.
 
+4. Launch. Expect `[Homebody] registry: 1 homes, 1 rules`. If the device
+   entity warning appears, entSpawner is not installed; the manual path is
+   off, which is fine for the remaining steps. Console:
+   `GetMod("HomebodyBridge").Homes()` prints
+   `example rules=default spawn=Character.NurseFemale`.
+
+5. Same launch. Expect `[Homebody] self-test` followed by PASS lines and
+   `passed=N failed=0`. Any FAIL line is a defect in the classifier, the
+   registry parser, or the JSON number handling; fix before continuing.
+   Re-run `Probe(15)`: each spot line now shows an activity other than
+   idle for recognisable furniture, and the sector line shows how many
+   sectors were skipped by category. Record under Findings any furniture
+   the classifier calls idle, with its path, and the new sector counts.
+
 ## Findings
 
 2026-09-05, 0.0.2, step 2: the probe ran but the streaming world object
@@ -64,3 +78,22 @@ time of day (`_morning`, `_evening`, `_night`), and one chair appears as
 several spots at the same position, one per time-of-day marking. 0.0.4 skips
 quest and navigation sectors and logs the intersecting sectors by category
 and level so the load can be cut to the handful that matter.
+
+2026-09-06, 0.0.3, step 3 passed: native path proven. `SendCommand
+(AIUseWorkspotCommand) returned true`, command state 1 then 2, `NPC is in
+the workspot after 13.2 s`. The nurse walked from the apartment to the
+corridor bench and sat. Two selection problems showed at the same time:
+the bench already had a resident sitting on it (she sat on top of him), and
+the bench is outside the apartment. So spot choice needs an occupancy check
+(any puppet in a workspot within about a metre of the spot; the workspot
+system has no reservation query for world spots) and a home boundary that
+stops at the apartment walls. Also worth recording: within 15 m of the
+apartment's own floor no worldAISpotNode was found at all; every spot was
+in the corridor. Player apartments may carry no ambient AI spots, which is
+what extraSpots and the manual path are for.
+The exit half of step 3 is not proven: the command reached state 5
+(Success) with the NPC already out of the workspot before the probe's 20 s
+of engine time had passed (the game was paused for the screenshot), so the
+fast-exit signal was sent to an NPC who had left on her own, or was pushed
+off by the resident. The driver's exit path still needs a run where the
+NPC is alone in the spot.
