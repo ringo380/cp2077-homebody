@@ -19,6 +19,7 @@ public class HomebodySystem extends ScriptableSystem {
   private let m_storage: ref<FileSystemStorage>;
   private let m_ticks: Int32;
   private let m_tickSeconds: Float = 0.5;
+  private let m_probe: ref<HomebodyProbe>;
 
   public static func Get(gi: GameInstance) -> ref<HomebodySystem> {
     return GameInstance.GetScriptableSystemsContainer(gi)
@@ -31,7 +32,12 @@ public class HomebodySystem extends ScriptableSystem {
     let svc: ref<HomebodyStorageService> = HomebodyStorageService.Get();
     this.m_storage = IsDefined(svc) ? svc.GetStorage() : null;
     HomebodyTrace(this.m_storage, "sys-00-attach");
+    this.m_probe = new HomebodyProbe();
     HomebodyLog.Info("attached (gen " + IntToString(this.m_gen) + ")");
+  }
+
+  public func ProbeSpots(radius: Float) -> String {
+    return this.m_probe.StartSpots(radius);
   }
 
   private func OnDetach() -> Void {
@@ -65,6 +71,7 @@ public class HomebodySystem extends ScriptableSystem {
     if this.m_ticks == 1 || this.m_ticks % 120 == 0 {
       HomebodyLog.Info("tick " + IntToString(this.m_ticks));
     };
+    this.m_probe.Tick();
     this.Schedule();
   }
 }
