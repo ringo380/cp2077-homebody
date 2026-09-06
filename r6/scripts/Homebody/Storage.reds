@@ -8,8 +8,11 @@ import Codeware.*
 // load, which is the lifetime the grant has.
 public class HomebodyStorageService extends ScriptableService {
   private let m_storage: ref<FileSystemStorage>;
+  private let m_classifier: ref<ActivityClassifier>;
 
   private cb func OnLoad() -> Void {
+    this.m_classifier = new ActivityClassifier();
+    this.m_classifier.InstallDefaults();
     this.m_storage = FileSystem.GetStorage("Homebody");
     HomebodyTrace(this.m_storage, "svc-00-storage");
     if !IsDefined(this.m_storage) {
@@ -19,6 +22,10 @@ public class HomebodyStorageService extends ScriptableService {
 
   public func GetStorage() -> ref<FileSystemStorage> {
     return this.m_storage;
+  }
+
+  public func GetClassifier() -> ref<ActivityClassifier> {
+    return this.m_classifier;
   }
 
   public static func Get() -> ref<HomebodyStorageService> {
