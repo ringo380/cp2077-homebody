@@ -62,6 +62,28 @@ function Homebody.Status()
     say("\n" .. sys:ListControllers())
 end
 
+-- Consumer API. entity is a game object handle (for example an NPC
+-- spawned by another mod) or an EntityID; homeId names a
+-- r6/storages/Homebody/home.<id>.json file.
+local function idOf(entity)
+    if type(entity) == "userdata" and entity.GetEntityID then return entity:GetEntityID() end
+    return entity
+end
+
+function Homebody.Attach(entity, homeId, rulesName)
+    local sys = system(); if not sys then return false end
+    return sys:Attach(idOf(entity), homeId, rulesName or "")
+end
+function Homebody.Detach(entity) local sys = system(); if sys then sys:Detach(idOf(entity)) end end
+function Homebody.Pause(entity, why) local sys = system(); return sys ~= nil and sys:Pause(idOf(entity), why or "api") end
+function Homebody.Resume(entity) local sys = system(); return sys ~= nil and sys:Resume(idOf(entity)) end
+function Homebody.IsAttached(entity) local sys = system(); return sys ~= nil and sys:IsAttached(idOf(entity)) end
+function Homebody.State(entity) local sys = system(); if not sys then return "Detached" end; return tostring(sys:GetState(idOf(entity))) end
+function Homebody.SetRules(entity, rulesName) local sys = system(); return sys ~= nil and sys:SetRules(idOf(entity), rulesName) end
+function Homebody.Dump(homeId) local sys = system(); if sys then say(sys:DumpSpots(homeId or "example")) end end
+function Homebody.Rule(match, activity) local sys = system(); if sys then sys:AddClassifierRule(match, activity) end end
+function Homebody.Rescan(homeId) local sys = system(); return sys ~= nil and sys:Rescan(homeId or "example") end
+
 registerForEvent("onInit", function()
     local ok, err = pcall(function() say("bridge loaded") end)
     if not ok then say("onInit failed: " .. tostring(err)) end

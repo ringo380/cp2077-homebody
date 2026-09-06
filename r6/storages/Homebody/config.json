@@ -8,5 +8,7 @@
   "boundaryMargin": 2.0,
   "allowOffNavmeshHops": false,
   "deviceEntity": "base\\spawner\\workspot_device.ent",
-  "deviceComponent": "workspot"
+  "deviceComponent": "workspot",
+  "spawnMeters": 40,
+  "despawnMeters": 70
 }

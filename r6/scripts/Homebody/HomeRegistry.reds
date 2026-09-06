@@ -13,6 +13,8 @@ public class HomebodyConfig extends IScriptable {
   public let allowOffNavmeshHops: Bool = false;
   public let deviceEntity: String = "base\\spawner\\workspot_device.ent";
   public let deviceComponent: String = "workspot";
+  public let spawnMeters: Float = 40.0;
+  public let despawnMeters: Float = 70.0;
   public let manualPathAvailable: Bool = false;
 }
 
@@ -187,6 +189,10 @@ public class HomeRegistry extends IScriptable {
     if o.HasKey("allowOffNavmeshHops") { c.allowOffNavmeshHops = o.GetKeyBool("allowOffNavmeshHops"); };
     if o.HasKey("deviceEntity") { c.deviceEntity = o.GetKeyString("deviceEntity"); };
     if o.HasKey("deviceComponent") { c.deviceComponent = o.GetKeyString("deviceComponent"); };
+    if o.HasKey("spawnMeters") { c.spawnMeters = HomeRegistry.NumOf(o.GetKey("spawnMeters")); };
+    if o.HasKey("despawnMeters") { c.despawnMeters = HomeRegistry.NumOf(o.GetKey("despawnMeters")); };
+    if c.spawnMeters < 5.0 { c.spawnMeters = 5.0; };
+    if c.despawnMeters < c.spawnMeters + 5.0 { c.despawnMeters = c.spawnMeters + 5.0; };
     if c.tickSeconds < 0.2 {
       HomebodyLog.Warn("config tickSeconds below 0.2; using 0.2");
       c.tickSeconds = 0.2;

@@ -49,6 +49,7 @@ public class HomebodySystem extends ScriptableSystem {
     this.m_probe = new HomebodyProbe();
     this.m_spawner = new Spawner();
     this.m_spawner.Init(this);
+    this.m_spawner.SetRange(cfg.spawnMeters, cfg.despawnMeters);
     if cfg.runSelfTest {
       HomebodyLog.Info("self-test\n" + HomebodyRunSelfTests());
     };
@@ -280,5 +281,51 @@ public class HomebodySystem extends ScriptableSystem {
   public func GetState(entityId: EntityID) -> CName {
     let c: ref<RoamController> = this.FindController(entityId);
     return IsDefined(c) ? c.GetState() : n"Detached";
+  }
+
+  public func IsAttached(entityId: EntityID) -> Bool {
+    return IsDefined(this.FindController(entityId));
+  }
+
+  public func SetRules(entityId: EntityID, rulesName: String) -> Bool {
+    let c: ref<RoamController> = this.FindController(entityId);
+    let r: ref<Rules> = this.m_registry.FindRules(rulesName);
+    if !IsDefined(c) || !IsDefined(r) { return false; };
+    c.SetRules(r);
+    return true;
+  }
+
+  // Writes every spot of a home to the log with its node key, which is
+  // what exclude and retag entries name.
+  public func DumpSpots(homeId: String) -> String {
+    let home: ref<Home> = this.m_registry.FindHome(homeId);
+    if !IsDefined(home) { return "unknown home " + homeId; };
+    if !this.IsDiscoveryReady(home) { return "discovery for " + homeId + " still running; ask again"; };
+    let spots: array<ref<Spot>> = this.SpotsFor(home);
+    let s: ref<Spot>;
+    for s in spots {
+      HomebodyLog.Info("spot " + homeId + " " + SpotDiscovery.Describe(s));
+    };
+    return IntToString(ArraySize(spots)) + " spots for " + homeId + " written to the log";
+  }
+
+  public func AddClassifierRule(match: String, activity: String) -> Void {
+    let cls: ref<ActivityClassifier> = ActivityClassifier.Get();
+    if IsDefined(cls) { cls.AddRule(match, activity); };
+  }
+
+  // Drops a home's discovery so the next tick runs it again, for use after
+  // AddClassifierRule or when sectors have streamed in since.
+  public func Rescan(homeId: String) -> Bool {
+    let i: Int32 = 0;
+    while i < ArraySize(this.m_discoveryHomes) {
+      if Equals(this.m_discoveryHomes[i], homeId) {
+        ArrayErase(this.m_discoveryHomes, i);
+        ArrayErase(this.m_discoveries, i);
+        return true;
+      };
+      i += 1;
+    };
+    return false;
   }
 }

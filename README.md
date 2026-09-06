@@ -8,14 +8,15 @@ Other mods use it by dropping a JSON file in a folder, or by attaching an NPC
 they already spawned.
 
 The furniture is not typed in by hand. Homebody reads the streamed world
-sector around the home and finds the AI spots the game itself placed on the
-couch, the barstool, the stove, and the rest, then sends the NPC to them with
-the engine's own use-workspot command.
+sectors around the home and finds the AI spots the game itself placed on the
+bench, the barstool, the chair by the window, and the rest, then sends the
+NPC to them with the engine's own use-workspot command, the same one crowd
+citizens use to take a seat.
 
 ## Requirements
 
 - Cyberpunk 2077 2.31 or later
-- RED4ext, redscript
+- RED4ext, redscript, Cyber Engine Tweaks (for the console helpers)
 - Codeware
 - RedFileSystem
 - RedData
@@ -25,20 +26,133 @@ the engine's own use-workspot command.
 
 ## Install
 
-Import the release zip through Vortex. Nothing needs to be configured for
-the example home; see the log lines in `ACCEPTANCE.md` to confirm it loaded.
+Import the release zip through Vortex. The shipped example home is the
+corridor outside the Downtown apartment; its resident spawns when the
+player comes within 40 m. `ACCEPTANCE.md` lists the log lines that prove
+each part works.
 
 ## For modders
 
-Filled in with the public API in a later version. The design document in
-`docs/design.md` describes the home file, the rules file, and the attach
-calls.
+### Files
+
+Everything lives in `r6/storages/Homebody/`. Homebody reads the folder once
+per game session.
+
+`home.<id>.json`, one per home:
+
+```json
+{
+  "id": "judy_apartment",
+  "bounds": { "center": [x, y, z], "radius": 12.0 },
+  "spawn": { "record": "Character.Judy_Stub", "appearance": "", "position": [x, y, z] },
+  "exclude": ["4491241521636031788"],
+  "retag": { "7185338493199956015": "tv" },
+  "extraSpots": [
+    { "position": [x, y, z], "yaw": 90.0,
+      "workspot": "base\\workspots\\common\\chair\\generic__sit_chair_tablet__read__01.workspot",
+      "activity": "sit" }
+  ],
+  "rules": "default"
+}
+```
+
+- `id`: required, unique, used in every log line.
+- `bounds`: required. Either `center` + `radius`, or `min` + `max` for a
+  box. World coordinates, three numbers each. Keep it inside the walls: a
+  sphere that reaches the corridor will send the NPC to the corridor.
+- `spawn`: optional. `record` is a TweakDB character record. `appearance`
+  may be empty. `position` defaults to the boundary centre, which in an
+  apartment is often inside a table, so set it. Without `spawn` the home is
+  attach-only.
+- `exclude`: node keys to drop. A node key is the decimal string the log
+  prints for each spot; `Dump` below lists them.
+- `retag`: node key to activity, overriding the classifier.
+- `extraSpots`: authored spots for furniture the game placed no AI spot on.
+  `workspot` is a game resource path and `activity` is required. These need
+  entSpawner's workspot device entity to be installed.
+- `rules`: a rules name, default `default`.
+
+`rules.<name>.json`:
+
+```json
+{
+  "phases": [
+    { "from": 6,  "to": 10, "weights": { "cook": 3, "sit": 1, "phone": 1, "wander": 1 } },
+    { "from": 23, "to": 6,  "weights": { "sleep": 5, "toilet": 1, "idle": 1 } }
+  ],
+  "duration": { "sit": [40, 120], "smoke": [30, 60], "default": [20, 60] },
+  "cooldownSeconds": 90,
+  "wanderRadius": 4.0
+}
+```
+
+- `phases`: game hours, `from` inclusive, `to` exclusive, wrapping past
+  midnight allowed; equal values mean all day. The first phase containing
+  the current hour wins; if none does, everything weighs 1.
+- `weights`: activity to weight. `wander` and `idle` are pseudo activities.
+  An activity with no spot in the home contributes nothing.
+- `duration`: seconds as `[min, max]` per activity, plus `default`.
+- `cooldownSeconds`: a spot used within this window weighs zero.
+- `wanderRadius`: metres around the home centre for wander targets.
+
+Activities the classifier produces: `sit`, `lean`, `stand`, `smoke`,
+`cook`, `drink`, `tv`, `radio`, `dance`, `phone`, `sleep`, `toilet`,
+`shower`, and `idle` for anything it cannot name. Add your own rule with
+`Rule` below when the log shows a spot as idle.
+
+`config.json` holds timeouts, the spawn ranges, the debug flag and the
+workspot device entity path; the shipped file documents every key by
+example.
+
+### Calls
+
+From redscript:
+
+```
+let hb: ref<HomebodySystem> = HomebodySystem.Get(gi);
+hb.Attach(npc.GetEntityID(), "judy_apartment", "");   // rules name optional
+hb.Pause(id, "conversation");
+hb.Resume(id);
+hb.GetState(id);        // Discovering, Idle, Moving, InSpot, Paused, Lost, Detached
+hb.Detach(id);
+```
+
+From Cyber Engine Tweaks Lua, through the shipped bridge:
+
+```lua
+local hb = GetMod("HomebodyBridge")
+hb.Attach(handle, "judy_apartment")   -- a game object or an EntityID
+hb.State(handle)
+hb.Pause(handle, "why"); hb.Resume(handle)
+hb.Detach(handle)
+hb.Dump("judy_apartment")             -- every spot with its node key, to the log
+hb.Rule("hookah", "smoke")            -- classifier rule, then hb.Rescan(homeId)
+```
+
+Console helpers for a look without a consumer mod: `hb.Homes()`,
+`hb.Status()`, `hb.AttachProbe(homeId)`, `hb.Probe(radius)`,
+`hb.Use(index)`, `hb.Cleanup()`.
+
+### Behaviour worth knowing
+
+- Discovery reads the world sectors that intersect the boundary and keeps
+  the AI spot nodes inside it, then classifies each from its markings and
+  workspot path. It runs once per home per session and takes a few seconds
+  in an interior, longer in a dense exterior.
+- A spot another NPC is already using (any puppet in a workspot within a
+  metre of it) is left alone.
+- The NPC pauses on its own during scenes, combat, and any workspot the
+  driver did not start, and resumes afterwards. Dead or missing entities
+  drop their controller.
+- Homes without AI spots inside them (player apartments are like this) need
+  `extraSpots`, and so entSpawner.
 
 ## Logs
 
-Everything Homebody says is prefixed `[Homebody]` in
-`r6/logs/redscript_rCURRENT.log`. Crash breadcrumbs named `trace-*` land in
-`red4ext/logs/redfilesystem-*.log`.
+Everything Homebody says is prefixed `[Homebody]` in Cyber Engine Tweaks'
+`bin/x64/plugins/cyber_engine_tweaks/gamelog.log`, which flushes late.
+Crash breadcrumbs named `trace-*` land in `red4ext/logs/redfilesystem-*.log`
+at once.
 
 ## License
 
