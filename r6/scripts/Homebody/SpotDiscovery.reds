@@ -29,6 +29,7 @@ public class SpotDiscovery extends IScriptable {
   private let m_nextSector: Int32;
   private let m_spots: array<ref<Spot>>;
   private let m_sectorsRead: Int32;
+  private let m_sectorInfo: array<String>;
   private let m_nodesSeen: Int32;
   private let m_label: String;
   // Census of every node class inside the boundary, and of the entity and
@@ -69,6 +70,7 @@ public class SpotDiscovery extends IScriptable {
     this.m_withWorkspot = 0;
     this.m_nextSector = 0;
     this.m_sectorsRead = 0;
+    ArrayClear(this.m_sectorInfo);
     this.m_nodesSeen = 0;
     let depot: ref<ResourceDepot> = GameInstance.GetResourceDepot();
     if !IsDefined(depot) {
@@ -146,18 +148,20 @@ public class SpotDiscovery extends IScriptable {
     this.m_state = DiscoveryState.LoadingBlocks;
   }
 
-  // Furniture lives in exterior and interior sectors at streaming level 0.
-  // Quest sectors are numerous and carry world-sized boxes, so a small
-  // boundary intersects thousands of them; navigation sectors hold navmesh
-  // only; exterior sectors at level 1 and up are distance proxies with
-  // boxes hundreds of metres wide (2026-09-06: 2732 of 2744 intersecting
-  // boxes were over 400 m, 251 of them at level 1 to 6). All are skipped.
+  // Furniture lives in exterior and interior sectors. Quest sectors are
+  // numerous and carry world-sized boxes, so a small boundary intersects
+  // thousands of them; navigation sectors hold navmesh only. Both are
+  // skipped. The streaming level is NOT a filter: 0.0.8 kept level 0 only
+  // and found none of the five corridor spots that the category-only
+  // filter finds, so the sector holding them sits at a higher level. Each
+  // sector that yields a spot is logged with its level and box size so the
+  // levels that matter can be learned from real homes.
   private func WantsCategory(c: worldStreamingSectorCategory) -> Bool {
     return Equals(c, worldStreamingSectorCategory.Exterior) || Equals(c, worldStreamingSectorCategory.Interior);
   }
 
   private func WantsSector(d: worldStreamingSectorDescriptor) -> Bool {
-    return this.WantsCategory(d.category) && Cast<Int32>(d.level) == 0;
+    return this.WantsCategory(d.category);
   }
 
   private static func BoxExtent(b: Box) -> Float {
@@ -201,6 +205,8 @@ public class SpotDiscovery extends IScriptable {
                 let st: ref<ResourceToken> = depot.LoadResource(path);
                 if IsDefined(st) {
                   ArrayPush(this.m_sectorTokens, st);
+                  ArrayPush(this.m_sectorInfo, "level " + IntToString(lvl) + ", box "
+                    + IntToString(Cast<Int32>(SpotDiscovery.BoxExtent(d.streamingBox))) + " m");
                   matched += 1;
                 };
               } else {
@@ -218,7 +224,7 @@ public class SpotDiscovery extends IScriptable {
       bi += 1;
     };
     HomebodyLog.Info(this.m_label + " discovery: " + IntToString(matched) + " of " + IntToString(total) + " sectors intersect the boundary ("
-      + IntToString(skipped) + " skipped by category or level, " + IntToString(huge) + " with a box over 400 m)");
+      + IntToString(skipped) + " skipped by category, " + IntToString(huge) + " with a box over 400 m)");
     HomebodyLog.Info(this.m_label + " discovery: intersecting sectors by category (Exterior Interior Quest Navigation AlwaysLoaded ...) "
       + SpotDiscovery.Counts(byCategory) + "; by level " + SpotDiscovery.Counts(byLevel));
     if matched == 0 {
@@ -235,16 +241,25 @@ public class SpotDiscovery extends IScriptable {
   }
 
   private func TickRead() -> Void {
-    let budget: Int32 = 2;
+    let budget: Int32 = 8;
     while budget > 0 && this.m_nextSector < ArraySize(this.m_sectorTokens) {
       let st: ref<ResourceToken> = this.m_sectorTokens[this.m_nextSector];
+      let info: String = this.m_sectorInfo[this.m_nextSector];
       this.m_nextSector += 1;
       budget -= 1;
       if !st.IsLoaded() {
         HomebodyLog.Warn(this.m_label + " discovery: sector failed to load: " + ResRef.ToString(st.GetPath()));
       } else {
         let sector: ref<worldStreamingSector> = st.GetResource() as worldStreamingSector;
-        if IsDefined(sector) { this.ReadSector(sector); };
+        if IsDefined(sector) {
+          let before: Int32 = ArraySize(this.m_spots);
+          this.ReadSector(sector);
+          let found: Int32 = ArraySize(this.m_spots) - before;
+          if found > 0 {
+            HomebodyLog.Info(this.m_label + " discovery: " + IntToString(found) + " spots in sector "
+              + ResRef.ToString(st.GetPath()) + " (" + info + ")");
+          };
+        };
       };
     };
     if this.m_nextSector >= ArraySize(this.m_sectorTokens) {

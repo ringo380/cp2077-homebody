@@ -168,3 +168,21 @@ exit line yet). Whether the manual animations were visible is not known.
 and logs the manual exit. Open questions for the 0.0.8 run: why the native
 command fails instantly after a self-ended workspot, and whether re-sending
 it after a short idle recovers.
+
+2026-09-06, 0.0.8. Step 5 passed: `passed=79 failed=0` on both loads.
+Step 6 regressed: `86 of 24132 sectors intersect the boundary` and
+`discovery done: 0 spots in 86 sectors, 55237 nodes seen`, 22 s after the
+attach. The level 0 filter dropped the sector that holds the five corridor
+spots, so the nurse `idles 10 s (nothing weighs)` for the rest of the run.
+The timing also shows what the four minutes on 0.0.7 were: 86 sectors in
+22 s is exactly two sectors per 0.5 s tick, so the tick cadence set the
+pace, not the node scan. 0.0.9 drops the level filter, reads eight
+sectors per tick, and logs the level and box size of every sector that
+yields a spot, so the levels that matter can be read off a real home.
+Step 11 (census) ran: inside the corridor boundary `worldEntityNode 3` and
+`worldStaticMeshNode 11` among lights, decals and particles; `3 entity or
+device nodes, 2 live by hash, 2 live by node ref, 0 with a workspot
+component, 0 device spots`. Both resolution routes work on live entities.
+The corridor holds no device furniture, so the census has to be run again
+with the boundary over the apartment floor before it says anything about
+the couch, bed or shower. Steps 7 to 10 were not exercised (no spots).
