@@ -31,6 +31,17 @@ public class SpotDiscovery extends IScriptable {
   private let m_sectorsRead: Int32;
   private let m_nodesSeen: Int32;
   private let m_label: String;
+  // Census of every node class inside the boundary, and of the entity and
+  // device nodes among them: how many resolve to a live entity by each of
+  // two routes, and how many of those carry a workspot component. This is
+  // what tells us which furniture the AI spot nodes miss.
+  private let m_classNames: array<CName>;
+  private let m_classCounts: array<Int32>;
+  private let m_entityNodes: Int32;
+  private let m_resolvedByHash: Int32;
+  private let m_resolvedByRef: Int32;
+  private let m_withWorkspot: Int32;
+  private let m_deviceSpots: array<ref<Spot>>;
 
   // The cooked world and its block list. Night City is the only world the
   // game streams during play; both paths were verified against the base
@@ -49,6 +60,13 @@ public class SpotDiscovery extends IScriptable {
     ArrayClear(this.m_blockTokens);
     ArrayClear(this.m_sectorTokens);
     ArrayClear(this.m_spots);
+    ArrayClear(this.m_classNames);
+    ArrayClear(this.m_classCounts);
+    ArrayClear(this.m_deviceSpots);
+    this.m_entityNodes = 0;
+    this.m_resolvedByHash = 0;
+    this.m_resolvedByRef = 0;
+    this.m_withWorkspot = 0;
     this.m_nextSector = 0;
     this.m_sectorsRead = 0;
     this.m_nodesSeen = 0;
@@ -225,8 +243,86 @@ public class SpotDiscovery extends IScriptable {
     if this.m_nextSector >= ArraySize(this.m_sectorTokens) {
       HomebodyLog.Info(this.m_label + " discovery done: " + IntToString(ArraySize(this.m_spots)) + " spots in "
         + IntToString(this.m_sectorsRead) + " sectors, " + IntToString(this.m_nodesSeen) + " nodes seen");
+      HomebodyLog.Info(this.m_label + " discovery census inside the boundary: " + this.Census());
+      HomebodyLog.Info(this.m_label + " discovery entities: " + IntToString(this.m_entityNodes) + " entity or device nodes, "
+        + IntToString(this.m_resolvedByHash) + " live by hash, " + IntToString(this.m_resolvedByRef) + " live by node ref, "
+        + IntToString(this.m_withWorkspot) + " with a workspot component, " + IntToString(ArraySize(this.m_deviceSpots)) + " device spots");
+      let ds: ref<Spot>;
+      for ds in this.m_deviceSpots {
+        HomebodyLog.Info(this.m_label + " device spot " + SpotDiscovery.Describe(ds) + " component " + NameToString(ds.componentName));
+      };
       this.m_state = DiscoveryState.Done;
     };
+  }
+
+  public func GetDeviceSpots() -> array<ref<Spot>> { return this.m_deviceSpots; }
+
+  private func Count(cls: CName) -> Void {
+    let i: Int32 = 0;
+    while i < ArraySize(this.m_classNames) {
+      if Equals(this.m_classNames[i], cls) {
+        this.m_classCounts[i] += 1;
+        return;
+      };
+      i += 1;
+    };
+    ArrayPush(this.m_classNames, cls);
+    ArrayPush(this.m_classCounts, 1);
+  }
+
+  private func Census() -> String {
+    let out: String = "";
+    let i: Int32 = 0;
+    while i < ArraySize(this.m_classNames) {
+      out += (i > 0 ? ", " : "") + NameToString(this.m_classNames[i]) + " " + IntToString(this.m_classCounts[i]);
+      i += 1;
+    };
+    return out;
+  }
+
+  // Entity and device nodes inside the boundary: resolve the live entity
+  // two ways and list its workspot components as device spots. Nothing is
+  // added to the spot list yet; the driver has no device path until the
+  // census proves the resolution works.
+  private func ReadEntityNode(setup: ref<WorldNodeSetupWrapper>, node: ref<worldNode>, pos: Vector4) -> Void {
+    this.m_entityNodes += 1;
+    let gi: GameInstance = GetGameInstance();
+    let gid: GlobalNodeID = setup.GetGlobalNodeID();
+    let byHash: ref<GameObject> = GameInstance.FindEntityByID(gi, EntityID.FromHash(gid.hash)) as GameObject;
+    if IsDefined(byHash) { this.m_resolvedByHash += 1; };
+    let gref: GlobalNodeRef = ResolveNodeRef(setup.GetNodeRef(), Cast<GlobalNodeRef>(GlobalNodeID.GetRoot()));
+    let byRef: ref<GameObject> = GameInstance.FindEntityByID(gi, Cast<EntityID>(gref)) as GameObject;
+    if IsDefined(byRef) { this.m_resolvedByRef += 1; };
+    let obj: ref<GameObject> = IsDefined(byHash) ? byHash : byRef;
+    if !IsDefined(obj) { return; };
+    let comps: array<ref<IComponent>> = obj.GetComponents();
+    let found: Int32 = 0;
+    let c: ref<IComponent>;
+    for c in comps {
+      let w: ref<WorkspotResourceComponent> = c as WorkspotResourceComponent;
+      if IsDefined(w) {
+        found += 1;
+        let s: ref<Spot> = new Spot();
+        s.nodeRef = setup.GetNodeRef();
+        s.nodeKey = ToString(gid.hash) + "/" + NameToString(w.GetName());
+        s.position = obj.GetWorldPosition();
+        let e: EulerAngles = Quaternion.ToEulerAngles(obj.GetWorldOrientation());
+        s.yaw = e.Yaw;
+        let res: ResourceAsyncRef = w.workspotResource;
+        s.workspotPath = ResRef.ToString(ResourceAsyncRef.GetPath(res));
+        s.source = SpotSource.Device;
+        s.isInfinite = true;
+        s.deviceId = obj.GetEntityID();
+        s.componentName = w.GetName();
+        let cls: ref<ActivityClassifier> = ActivityClassifier.Get();
+        let hint: array<CName>;
+        ArrayPush(hint, w.GetName());
+        ArrayPush(hint, node.GetClassName());
+        s.activity = IsDefined(cls) ? cls.Classify(hint, s.workspotPath) : "idle";
+        ArrayPush(this.m_deviceSpots, s);
+      };
+    };
+    if found > 0 { this.m_withWorkspot += 1; };
   }
 
   private func ReadSector(sector: ref<worldStreamingSector>) -> Void {
@@ -238,6 +334,12 @@ public class SpotDiscovery extends IScriptable {
       i += 1;
       this.m_nodesSeen += 1;
       let node: ref<worldNode> = IsDefined(setup) ? setup.GetNode() : null;
+      if IsDefined(node) && this.m_bounds.Contains(setup.GetPosition()) {
+        this.Count(node.GetClassName());
+        if IsDefined(node as worldEntityNode) || IsDefined(node as worldDeviceNode) {
+          this.ReadEntityNode(setup, node, setup.GetPosition());
+        };
+      };
       let spotNode: ref<worldAISpotNode> = node as worldAISpotNode;
       if IsDefined(spotNode) {
         let pos: Vector4 = setup.GetPosition();

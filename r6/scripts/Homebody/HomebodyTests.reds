@@ -55,7 +55,7 @@ public func HomebodyRegistryTests(t: ref<HomebodyTest>) -> Void {
     t.AssertEqF(home.extraSpots[0].yaw, 90.0, 0.001, "reg/extra-yaw");
     t.AssertEqS(home.rulesName, "night", "reg/rules-name");
   };
-  let bad: ref<Home> = HomeRegistry.ParseHome(ParseJson("{\"id\":\"nobounds\"}"), "bad");
+  let bad: ref<Home> = HomeRegistry.ParseHome(ParseJson("{\"id\":\"nobounds\"}"), "self-test home without bounds");
   t.AssertTrue(!IsDefined(bad), "reg/missing-bounds-skipped");
   let boxHome: ref<Home> = HomeRegistry.ParseHome(ParseJson(
     "{\"id\":\"b\",\"bounds\":{\"min\":[0,0,0],\"max\":[10,10,10]}}"), "box");
@@ -186,11 +186,17 @@ public func HomebodyOccupancyTests(t: ref<HomebodyTest>) -> Void {
   t.AssertEqI(ArraySize(free), 2, "occ/one-taken");
   t.AssertEqS(free[0].nodeKey, "a", "occ/first-kept");
   t.AssertEqS(free[1].nodeKey, "c", "occ/last-kept");
+  // A returned array must be bound to a local before ArraySize reads it;
+  // inline, ArraySize(Occupancy.Free(...)) reported 0 and 3 for these two
+  // on 2026-09-06.
   let nobody: array<Vector4>;
-  t.AssertEqI(ArraySize(Occupancy.Free(spots, nobody, 1.0)), 3, "occ/none-taken");
+  let all: array<ref<Spot>> = Occupancy.Free(spots, nobody, 1.0);
+  t.AssertEqI(ArraySize(all), 3, "occ/none-taken");
   ArrayPush(taken, new Vector4(1.0, 0.9, 0.0, 1.0));
   ArrayPush(taken, new Vector4(9.0, 0.0, 1.1, 1.0));
-  t.AssertEqI(ArraySize(Occupancy.Free(spots, taken, 1.0)), 1, "occ/tolerance-edge");
+  let edge: array<ref<Spot>> = Occupancy.Free(spots, taken, 1.0);
+  t.AssertEqI(ArraySize(edge), 1, "occ/tolerance-edge");
+  t.AssertEqS(edge[0].nodeKey, "c", "occ/tolerance-edge-kept-c");
 }
 
 public func HomebodyRunSelfTests() -> String {

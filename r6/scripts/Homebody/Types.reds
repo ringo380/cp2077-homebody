@@ -2,7 +2,8 @@ module Homebody
 
 public enum SpotSource {
   Discovered = 0,
-  Manual = 1
+  Manual = 1,
+  Device = 2
 }
 
 // One usable place in a home: a baked world AI spot found by discovery, or
@@ -20,6 +21,10 @@ public class Spot extends IScriptable {
   public let lastUsedAt: Float;
   public let unreachable: Bool;
   public let nativeFailed: Bool;
+  // Device spots: the live furniture entity and the workspot component
+  // on it to play in.
+  public let deviceId: EntityID;
+  public let componentName: CName;
 }
 
 // A home boundary: a sphere (radius > 0) or an axis-aligned box.
