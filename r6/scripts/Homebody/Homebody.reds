@@ -106,6 +106,7 @@ public class HomebodySystem extends ScriptableSystem {
     let gi: GameInstance = GetGameInstance();
     let now: Float = this.Now();
     let hour: Int32 = GameTime.Hours(GameInstance.GetTimeSystem(gi).GetGameTime());
+    this.ApplySettings(gi);
     this.m_probe.Tick();
     let d: ref<SpotDiscovery>;
     for d in this.m_discoveries { d.Tick(); };
@@ -126,6 +127,22 @@ public class HomebodySystem extends ScriptableSystem {
     let player: ref<PlayerPuppet> = GetPlayer(gi);
     if IsDefined(player) { this.m_spawner.Tick(this.m_registry.GetHomes(), player.GetWorldPosition(), now); };
     this.Schedule();
+  }
+
+  // The Mod Settings page wins over config.json for the values it shows.
+  // Pause on an already paused controller only updates the reason and
+  // Resume on a running one only clears the flag, so this is safe per tick.
+  private func ApplySettings(gi: GameInstance) -> Void {
+    let st: ref<HomebodySettings> = HomebodySettings.Get(gi);
+    if !IsDefined(st) { return; };
+    let cfg: ref<HomebodyConfig> = this.m_registry.GetConfig();
+    cfg.debug = st.debug || cfg.debug;
+    cfg.nativeTimeoutSeconds = st.nativeTimeoutSeconds;
+    cfg.moveTimeoutSeconds = st.moveTimeoutSeconds;
+    let c: ref<RoamController>;
+    for c in this.m_controllers {
+      if st.enabled { c.Resume(); } else { c.Pause("disabled"); };
+    };
   }
 
   // Probe entry points, reached from the CET console through the bridge.
