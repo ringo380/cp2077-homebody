@@ -14,12 +14,44 @@ local function system()
     return nil
 end
 
--- Lists every furniture spot within radius metres of the player in CET's
--- gamelog.log, which flushes late. Default radius 15.
+-- Lists every furniture spot within radius metres of the player. Progress
+-- prints to this console every few seconds while discovery runs, and the
+-- full listing prints when it is done; gamelog.log gets the same lines,
+-- minutes later. Default radius 15.
+local probe = { running = false, elapsed = 0, last = "" }
+
 function Homebody.Probe(radius)
     local sys = system()
     if not sys then say("system not available"); return end
     say(sys:ProbeSpots(tonumber(radius) or 15.0))
+    probe.running = true
+    probe.elapsed = 3
+    probe.last = ""
+end
+
+local function probePoll(dt)
+    if not probe.running then return end
+    probe.elapsed = probe.elapsed + dt
+    if probe.elapsed < 3 then return end
+    probe.elapsed = 0
+    local sys = system()
+    if not sys then probe.running = false; say("system went away"); return end
+    local status = tostring(sys:ProbeStatus())
+    if status ~= probe.last then say("probe " .. status) end
+    probe.last = status
+    if status:find("^done") then
+        for line in tostring(sys:ProbeListing()):gmatch("[^\n]+") do say(line) end
+        probe.running = false
+    elseif status:find("^failed") or status:find("^idle") or status:find("^no probe") then
+        probe.running = false
+    end
+end
+
+-- Prints where the last Probe is right now.
+function Homebody.ProbeStatus()
+    local sys = system()
+    if not sys then say("system not available"); return end
+    say("probe " .. tostring(sys:ProbeStatus()))
 end
 
 -- Spawns one NPC beside the player and sends it to spot number index from
@@ -86,6 +118,11 @@ function Homebody.Rescan(homeId) local sys = system(); return sys ~= nil and sys
 registerForEvent("onInit", function()
     local ok, err = pcall(function() say("bridge loaded") end)
     if not ok then say("onInit failed: " .. tostring(err)) end
+end)
+
+registerForEvent("onUpdate", function(dt)
+    local ok, err = pcall(probePoll, dt)
+    if not ok then probe.running = false; say("probe poll failed: " .. tostring(err)) end
 end)
 
 return Homebody

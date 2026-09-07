@@ -145,7 +145,14 @@ Console helpers for a look without a consumer mod: `hb.Homes()`,
   driver did not start, and resumes afterwards. Dead or missing entities
   drop their controller.
 - Homes without AI spots inside them (player apartments are like this) need
-  `extraSpots`, and so entSpawner.
+  `extraSpots`, and so entSpawner. The workspots a player apartment's
+  devices carry (personal link, computer, camera) are the player's own
+  interactions and are never offered to an NPC; the couch and bed carry
+  none at all.
+- `GetMod("HomebodyBridge").Probe(15)` in the CET console prints, as it
+  runs, what discovery finds around the player: spots, device workspots,
+  and the entity templates inside the radius, which is how to learn the
+  furniture's names before writing `extraSpots`.
 
 ## Logs
 

@@ -18,6 +18,19 @@ public class HomebodyProbe extends IScriptable {
       + FloatToStringPrec(at.Y, 1) + ", " + FloatToStringPrec(at.Z, 1) + ")";
   }
 
+  // For the console: where the last Probe is, and its full listing once
+  // done. The log gets the same lines, minutes later.
+  public func Status() -> String {
+    if !IsDefined(this.m_discovery) { return "no probe has run"; };
+    return this.m_discovery.Progress();
+  }
+
+  public func Listing() -> String {
+    if !IsDefined(this.m_discovery) { return "no probe has run"; };
+    if !this.m_discovery.IsDone() { return this.m_discovery.Progress(); };
+    return this.m_discovery.Listing();
+  }
+
   public func Tick() -> Void {
     this.TickUse();
     if !IsDefined(this.m_discovery) { return; };

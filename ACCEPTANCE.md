@@ -204,3 +204,36 @@ meant, so CET never loaded the bridge and `GetMod("HomebodyBridge")` was
 nil. Fixed in 0.0.10 and the file is now checked with LuaJIT's loadfile
 before every zip. Steps 2, 7 and 11 over the apartment floor need the
 bridge, so they wait for 0.0.10.
+
+2026-09-06, 0.0.10. The bridge loads again and `Probe(15)` on the apartment
+floor answered step 11 for the apartment: `worldEntityNode 43,
+worldDeviceNode 2`, `45 entity or device nodes, 30 live by hash, 30 live
+by node ref, 14 with a workspot component, 22 device spots`, and every one
+of the 22 is a player interaction (`device_personal_link_connect`,
+`computerws`, `camera_zoom_generic`, `player_engineering`, all under
+`base\gameplay\`). The couch, bed and shower carry no NPC workspot. So the
+device path is not the route to apartment furniture; 0.0.11 skips
+`base\gameplay\` workspots and logs the entity templates inside the
+boundary so the furniture can be named and matched instead. The probe
+also found one more corridor spot at radius 15 from the apartment floor
+(`phone` at (-1599.0, 366.0, 49.2)).
+Native path: the very first command of the session (`drink
+7185339592711584226`) failed at once, `NPC Relaxed behaviour 0 reaction
+Ignore/Ignore`, and the re-send after 3 s failed the same way; so did
+every later native command, including the `sit 4491241521636031788` that
+seated her on the first try in 0.0.7 and 0.0.9. The NPC's own state is
+clean at that moment, so the cause is in the command queue or the
+behaviour tree, not a reaction. 0.0.11 logs the active command count and
+the workspot and move command flags at the failure and does a hard cancel
+(by class, by id, and the workspot system's stop) before the re-send. The
+manual path carried every activity after that (`manual play` then `leaves`
+or `was out of` after 17 to 52 s).
+Observed in the world: she recognised the first seat was occupied and
+took the second one, which was occupied too, by the second half of a
+hand-holding couple whose position overlaps that seat. The log never shows
+the occupancy filter skipping a spot, so it is not seeing those residents;
+0.0.11 logs how many seated puppets the query returns and how far the
+nearest one is from each spot.
+Console: the user asked for progress while the probe runs, since it is
+hard to tell whether it is still going. 0.0.11 prints a status line to
+the console every three seconds and the full listing when it finishes.

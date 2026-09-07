@@ -43,6 +43,14 @@ public class SpotDiscovery extends IScriptable {
   private let m_resolvedByRef: Int32;
   private let m_withWorkspot: Int32;
   private let m_deviceSpots: array<ref<Spot>>;
+  // Entity templates inside the boundary (path plus appearance), counted,
+  // so the log names the furniture that carries no workspot at all.
+  private let m_templates: array<String>;
+  private let m_templateCounts: array<Int32>;
+  // Workspot components under base\gameplay\ are the player's own
+  // interactions (personal link, computer, camera zoom); they are counted
+  // and skipped, never offered to an NPC.
+  private let m_playerWorkspots: Int32;
 
   // The cooked world and its block list. Night City is the only world the
   // game streams during play; both paths were verified against the base
@@ -71,6 +79,9 @@ public class SpotDiscovery extends IScriptable {
     this.m_nextSector = 0;
     this.m_sectorsRead = 0;
     ArrayClear(this.m_sectorInfo);
+    ArrayClear(this.m_templates);
+    ArrayClear(this.m_templateCounts);
+    this.m_playerWorkspots = 0;
     this.m_nodesSeen = 0;
     let depot: ref<ResourceDepot> = GameInstance.GetResourceDepot();
     if !IsDefined(depot) {
@@ -90,6 +101,41 @@ public class SpotDiscovery extends IScriptable {
     if Equals(this.m_state, DiscoveryState.LoadingBlocks) { this.TickBlocks(); return; };
     if Equals(this.m_state, DiscoveryState.LoadingSectors) { this.TickSectors(); return; };
     if Equals(this.m_state, DiscoveryState.Reading) { this.TickRead(); return; };
+  }
+
+  // One line on where discovery is, for a console that cannot see the log.
+  public func Progress() -> String {
+    if Equals(this.m_state, DiscoveryState.Idle) { return "idle"; };
+    if Equals(this.m_state, DiscoveryState.LoadingWorld) { return "loading the streaming world"; };
+    if Equals(this.m_state, DiscoveryState.LoadingBlocks) { return "loading " + IntToString(ArraySize(this.m_blockTokens)) + " streaming blocks"; };
+    if Equals(this.m_state, DiscoveryState.LoadingSectors) { return "loading " + IntToString(ArraySize(this.m_sectorTokens)) + " sectors"; };
+    if Equals(this.m_state, DiscoveryState.Reading) {
+      return "reading sector " + IntToString(this.m_nextSector) + " of " + IntToString(ArraySize(this.m_sectorTokens)) + ", "
+        + IntToString(ArraySize(this.m_spots)) + " spots and " + IntToString(ArraySize(this.m_deviceSpots)) + " device spots so far";
+    };
+    if Equals(this.m_state, DiscoveryState.Failed) { return "failed; see the log"; };
+    return "done: " + IntToString(ArraySize(this.m_spots)) + " spots, " + IntToString(ArraySize(this.m_deviceSpots)) + " device spots, "
+      + IntToString(this.m_playerWorkspots) + " player workspots skipped, " + IntToString(this.m_sectorsRead) + " sectors read";
+  }
+
+  // Everything the done log lines say, one item per line, for the console.
+  public func Listing() -> String {
+    let out: String = "";
+    let s: ref<Spot>;
+    for s in this.m_spots { out += "spot " + SpotDiscovery.Describe(s) + "\n"; };
+    for s in this.m_deviceSpots { out += "device spot " + SpotDiscovery.Describe(s) + " component " + NameToString(s.componentName) + "\n"; };
+    out += "nodes inside the boundary: " + this.Census() + "\n";
+    out += "entities: " + this.Entities() + "\n";
+    out += "entity templates: " + this.Templates() + "\n";
+    out += this.Progress();
+    return out;
+  }
+
+  private func Entities() -> String {
+    return IntToString(this.m_entityNodes) + " entity or device nodes, "
+      + IntToString(this.m_resolvedByHash) + " live by hash, " + IntToString(this.m_resolvedByRef) + " live by node ref, "
+      + IntToString(this.m_withWorkspot) + " with a workspot component, " + IntToString(ArraySize(this.m_deviceSpots)) + " device spots, "
+      + IntToString(this.m_playerWorkspots) + " player workspots skipped";
   }
 
   public func IsDone() -> Bool { return Equals(this.m_state, DiscoveryState.Done); }
@@ -266,9 +312,8 @@ public class SpotDiscovery extends IScriptable {
       HomebodyLog.Info(this.m_label + " discovery done: " + IntToString(ArraySize(this.m_spots)) + " spots in "
         + IntToString(this.m_sectorsRead) + " sectors, " + IntToString(this.m_nodesSeen) + " nodes seen");
       HomebodyLog.Info(this.m_label + " discovery census inside the boundary: " + this.Census());
-      HomebodyLog.Info(this.m_label + " discovery entities: " + IntToString(this.m_entityNodes) + " entity or device nodes, "
-        + IntToString(this.m_resolvedByHash) + " live by hash, " + IntToString(this.m_resolvedByRef) + " live by node ref, "
-        + IntToString(this.m_withWorkspot) + " with a workspot component, " + IntToString(ArraySize(this.m_deviceSpots)) + " device spots");
+      HomebodyLog.Info(this.m_label + " discovery entities: " + this.Entities());
+      HomebodyLog.Info(this.m_label + " discovery entity templates inside the boundary: " + this.Templates());
       let ds: ref<Spot>;
       for ds in this.m_deviceSpots {
         HomebodyLog.Info(this.m_label + " device spot " + SpotDiscovery.Describe(ds) + " component " + NameToString(ds.componentName));
@@ -292,6 +337,29 @@ public class SpotDiscovery extends IScriptable {
     ArrayPush(this.m_classCounts, 1);
   }
 
+  private func CountTemplate(key: String) -> Void {
+    let i: Int32 = 0;
+    while i < ArraySize(this.m_templates) {
+      if Equals(this.m_templates[i], key) {
+        this.m_templateCounts[i] += 1;
+        return;
+      };
+      i += 1;
+    };
+    ArrayPush(this.m_templates, key);
+    ArrayPush(this.m_templateCounts, 1);
+  }
+
+  private func Templates() -> String {
+    let out: String = "";
+    let i: Int32 = 0;
+    while i < ArraySize(this.m_templates) {
+      out += (i > 0 ? ", " : "") + this.m_templates[i] + " " + IntToString(this.m_templateCounts[i]);
+      i += 1;
+    };
+    return out;
+  }
+
   private func Census() -> String {
     let out: String = "";
     let i: Int32 = 0;
@@ -308,6 +376,13 @@ public class SpotDiscovery extends IScriptable {
   // census proves the resolution works.
   private func ReadEntityNode(setup: ref<WorldNodeSetupWrapper>, node: ref<worldNode>, pos: Vector4) -> Void {
     this.m_entityNodes += 1;
+    let en: ref<worldEntityNode> = node as worldEntityNode;
+    if IsDefined(en) {
+      let tpl: ResourceAsyncRef = en.entityTemplate;
+      let key: String = ResRef.ToString(ResourceAsyncRef.GetPath(tpl));
+      if IsNameValid(en.appearanceName) { key += "#" + NameToString(en.appearanceName); };
+      this.CountTemplate(key);
+    };
     let gi: GameInstance = GetGameInstance();
     let gid: GlobalNodeID = setup.GetGlobalNodeID();
     let byHash: ref<GameObject> = GameInstance.FindEntityByID(gi, EntityID.FromHash(gid.hash)) as GameObject;
@@ -322,7 +397,10 @@ public class SpotDiscovery extends IScriptable {
     let c: ref<IComponent>;
     for c in comps {
       let w: ref<WorkspotResourceComponent> = c as WorkspotResourceComponent;
-      if IsDefined(w) {
+      if IsDefined(w) && StrBeginsWith(ResRef.ToString(ResourceAsyncRef.GetPath(w.workspotResource)), "base\\gameplay\\") {
+        found += 1;
+        this.m_playerWorkspots += 1;
+      } else if IsDefined(w) {
         found += 1;
         let s: ref<Spot> = new Spot();
         s.nodeRef = setup.GetNodeRef();

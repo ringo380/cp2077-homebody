@@ -182,8 +182,9 @@ public class RoamController extends IScriptable {
     } else {
       let taken: array<Vector4> = Occupancy.TakenPositions(puppet, this.m_home.bounds.radius + this.m_cfg.boundaryMargin + 5.0);
       let free: array<ref<Spot>> = Occupancy.Free(this.m_spots, taken, 1.0);
-      if this.m_cfg.debug && ArraySize(free) < ArraySize(this.m_spots) {
-        HomebodyLog.Info(this.m_label + " skips " + IntToString(ArraySize(this.m_spots) - ArraySize(free)) + " occupied spots");
+      if this.m_cfg.debug {
+        HomebodyLog.Info(this.m_label + " occupancy: " + IntToString(ArraySize(taken)) + " puppets in workspots nearby, "
+          + IntToString(ArraySize(this.m_spots) - ArraySize(free)) + " spots taken" + Occupancy.Nearest(this.m_spots, taken));
       };
       d = Scheduler.Decide(free, hour, this.m_rules, now, center, this.m_cfg.manualPathAvailable, RandF(), RandF());
     };

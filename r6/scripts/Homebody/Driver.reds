@@ -54,7 +54,33 @@ public class Driver extends IScriptable {
       if IsDefined(data) { out += " stim " + ToString(data.stimType); };
       if rc.GetWorkSpotReactionFlag() { out += " workspot-reaction"; };
     };
+    let ai: ref<AIHumanComponent> = puppet.GetAIControllerComponent();
+    if IsDefined(ai) {
+      out += " commands " + IntToString(ai.GetActiveCommandsCount());
+      if ai.IsCommandActive(n"AIUseWorkspotCommand") { out += " workspot-active#" + IntToString(ai.GetActiveCommandID(n"AIUseWorkspotCommand")); };
+      if ai.IsCommandExecuting(n"AIBaseUseWorkspotCommand", true) { out += " workspot-executing"; };
+      if ai.IsCommandWaiting(n"AIBaseUseWorkspotCommand", true) { out += " workspot-waiting"; };
+      if ai.IsCommandExecuting(n"AIMoveCommand", true) { out += " move-executing"; };
+      if ai.IsCommandWaiting(n"AIMoveCommand", true) { out += " move-waiting"; };
+    };
     return out;
+  }
+
+  // The hard cancel before a native re-send: whatever workspot or move
+  // command the tree still holds, by class and by id, and the workspot
+  // system's own stop if the NPC is still counted as in one.
+  private func HardCancel(ai: ref<AIHumanComponent>, puppet: ref<ScriptedPuppet>) -> String {
+    let out: String = "";
+    if ai.CancelOrInterruptCommand(n"AIBaseUseWorkspotCommand", true, true) { out += " cancelled-workspot"; };
+    if ai.CancelOrInterruptCommand(n"AIMoveCommand", true, true) { out += " cancelled-move"; };
+    let id: Int32 = ai.GetActiveCommandID(n"AIUseWorkspotCommand");
+    if id >= 0 && ai.CancelCommandById(Cast<Uint32>(id), true) { out += " cancelled-by-id"; };
+    let wss: ref<WorkspotGameSystem> = GameInstance.GetWorkspotSystem(GetGameInstance());
+    if IsDefined(wss) && wss.IsActorInWorkspot(puppet) {
+      wss.StopNpcInWorkspot(puppet);
+      out += " stopped-in-workspot";
+    };
+    return Equals(out, "") ? " nothing to cancel" : out;
   }
   public func IsActive() -> Bool { return this.m_stage != 0; }
   public func Stage() -> Int32 { return this.m_stage; }
@@ -215,8 +241,9 @@ public class Driver extends IScriptable {
         if instant && !this.m_nativeRetried {
           this.m_nativeRetried = true;
           HomebodyLog.Warn(this.m_label + " native command for " + d.spot.nodeKey + " failed at once (state " + IntToString(EnumInt(st))
-            + "); NPC " + Driver.NpcState(puppet) + "; re-sending in 3 s");
+            + "); NPC " + Driver.NpcState(puppet));
           this.EndCommands(ai);
+          HomebodyLog.Info(this.m_label + " hard cancel:" + this.HardCancel(ai, puppet) + "; re-sending in 3 s");
           this.Enter(8, now);
           return this.Result(DriverOutcome.Running, "");
         };

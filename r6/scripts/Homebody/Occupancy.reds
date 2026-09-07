@@ -28,6 +28,23 @@ public class Occupancy {
     return out;
   }
 
+  // For the debug log: each spot with a seated puppet within three metres
+  // and how far away that puppet is, so a miss by the tolerance shows.
+  public static func Nearest(spots: array<ref<Spot>>, taken: array<Vector4>) -> String {
+    let out: String = "";
+    let s: ref<Spot>;
+    for s in spots {
+      let best: Float = 999.0;
+      let p: Vector4;
+      for p in taken {
+        let dist: Float = Vector4.Distance(p, s.position);
+        if dist < best { best = dist; };
+      };
+      if best <= 3.0 { out += "; " + s.nodeKey + " has one " + FloatToStringPrec(best, 2) + " m away"; };
+    };
+    return out;
+  }
+
   public static func Free(spots: array<ref<Spot>>, taken: array<Vector4>, tolerance: Float) -> array<ref<Spot>> {
     let out: array<ref<Spot>>;
     let s: ref<Spot>;

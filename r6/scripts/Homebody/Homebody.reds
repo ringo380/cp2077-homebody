@@ -150,6 +150,14 @@ public class HomebodySystem extends ScriptableSystem {
     return this.m_probe.StartSpots(radius);
   }
 
+  public func ProbeStatus() -> String {
+    return this.m_probe.Status();
+  }
+
+  public func ProbeListing() -> String {
+    return this.m_probe.Listing();
+  }
+
   public func ProbeUse(record: String, index: Int32) -> String {
     return this.m_probe.StartUse(record, index);
   }
