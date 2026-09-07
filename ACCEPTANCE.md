@@ -186,3 +186,21 @@ component, 0 device spots`. Both resolution routes work on live entities.
 The corridor holds no device furniture, so the census has to be run again
 with the boundary over the apartment floor before it says anything about
 the couch, bed or shower. Steps 7 to 10 were not exercised (no spots).
+
+2026-09-06, 0.0.9. Step 6 passed again and the load is solved: `327 of
+24132 sectors intersect the boundary`, `5 spots in sector
+base\worlds\03_night_city\_compiled\default\exterior_-13_2_0_1.streamingsector
+(level 1, box 679 m)`, `discovery done: 5 spots in 327 sectors, 207720
+nodes seen` 23 s after the attach (four minutes on 0.0.7). So the corridor
+spots live in a level 1 exterior sector with a 679 m box; neither the
+level nor the box size can filter it, and the category filter is the only
+one kept. Step 11 with the corridor boundary: `worldAISpotNode 5`,
+`worldEntityNode 4`, `4 entity or device nodes, 1 live by hash, 1 live by
+node ref, 0 with a workspot component`.
+Every console command from 0.0.7 to 0.0.9 failed: HomebodyBridge.log
+shows `init.lua:45: unfinished string near '"'` on every load since
+18:12, a real line break inside a Lua string in Homes() where `\n` was
+meant, so CET never loaded the bridge and `GetMod("HomebodyBridge")` was
+nil. Fixed in 0.0.10 and the file is now checked with LuaJIT's loadfile
+before every zip. Steps 2, 7 and 11 over the apartment floor need the
+bridge, so they wait for 0.0.10.

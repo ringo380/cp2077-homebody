@@ -42,8 +42,7 @@ end
 function Homebody.Homes()
     local sys = system()
     if not sys then say("system not available"); return end
-    say("
-" .. sys:ListHomes())
+    say("\n" .. sys:ListHomes())
 end
 
 -- Spawns one NPC beside the player and attaches it to a home from the

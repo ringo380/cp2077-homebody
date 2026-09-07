@@ -8,7 +8,8 @@ import Codeware.*
 // spot's workspot in it, and is what authored spots and native-failed spots
 // use. Stages: 0 idle, 1 native moving, 2 native in spot, 3 native
 // exiting, 4 manual moving, 5 manual device spawning, 6 manual in spot,
-// 7 wandering. Every transition logs with the label the controller set.
+// 7 wandering, 8 recovering before a native re-send. Every transition
+// logs with the label the controller set.
 public class Driver extends IScriptable {
   private let m_cfg: ref<HomebodyConfig>;
   private let m_label: String;
@@ -20,6 +21,7 @@ public class Driver extends IScriptable {
   private let m_deviceId: EntityID;
   private let m_manualRetry: Bool;
   private let m_hopTried: Bool;
+  private let m_nativeRetried: Bool;
 
   public func Init(cfg: ref<HomebodyConfig>, label: String) -> Void {
     this.m_cfg = cfg;
@@ -32,6 +34,28 @@ public class Driver extends IScriptable {
   // including the approach: the native command seats the NPC before the
   // driver's next tick sees it.
   public func ExpectsWorkspot() -> Bool { return this.m_stage >= 1 && this.m_stage <= 6; }
+
+  // One line on the NPC's AI state for the log: high level state, behaviour
+  // state, the reaction the reaction manager is playing or wants to play,
+  // its stimulus, and whether a workspot reaction was played. Read when a
+  // native command fails or the NPC leaves a spot on her own, so the log
+  // says what the engine was doing with her at that moment.
+  public static func NpcState(puppet: ref<ScriptedPuppet>) -> String {
+    if !IsDefined(puppet) { return "no puppet"; };
+    let out: String = ToString(puppet.GetHighLevelStateFromBlackboard());
+    let bb: ref<IBlackboard> = puppet.GetPuppetStateBlackboard();
+    if IsDefined(bb) {
+      out += " behaviour " + IntToString(bb.GetInt(GetAllBlackboardDefs().PuppetState.BehaviorState));
+    };
+    let rc: ref<ReactionManagerComponent> = puppet.GetStimReactionComponent();
+    if IsDefined(rc) {
+      out += " reaction " + ToString(rc.GetReactionBehaviorName()) + "/" + ToString(rc.GetDesiredReactionName());
+      let data: ref<AIReactionData> = rc.GetActiveReactionData();
+      if IsDefined(data) { out += " stim " + ToString(data.stimType); };
+      if rc.GetWorkSpotReactionFlag() { out += " workspot-reaction"; };
+    };
+    return out;
+  }
   public func IsActive() -> Bool { return this.m_stage != 0; }
   public func Stage() -> Int32 { return this.m_stage; }
   public func CurrentDecision() -> ref<Decision> { return this.m_decision; }
@@ -52,6 +76,7 @@ public class Driver extends IScriptable {
     this.m_decision = d;
     this.m_manualRetry = false;
     this.m_hopTried = false;
+    this.m_nativeRetried = false;
     let ai: ref<AIHumanComponent> = puppet.GetAIControllerComponent();
     if !IsDefined(ai) {
       HomebodyLog.Warn(this.m_label + " has no AI component; cannot drive");
@@ -75,6 +100,12 @@ public class Driver extends IScriptable {
       HomebodyLog.Warn(this.m_label + " spot " + d.spot.nodeKey + " does not resolve (sector not streamed?); manual path");
       return this.StartManual(ai, puppet, now);
     };
+    this.SendNative(ai, now, "");
+    return true;
+  }
+
+  private func SendNative(ai: ref<AIHumanComponent>, now: Float, note: String) -> Void {
+    let d: ref<Decision> = this.m_decision;
     let cmd: ref<AIUseWorkspotCommand> = new AIUseWorkspotCommand();
     cmd.workspotNode = d.spot.nodeRef;
     cmd.moveToWorkspot = true;
@@ -84,8 +115,7 @@ public class Driver extends IScriptable {
     this.m_useCmd = cmd;
     this.Enter(1, now);
     HomebodyLog.Info(this.m_label + " native use " + d.spot.activity + " " + d.spot.nodeKey + " for "
-      + FloatToStringPrec(d.duration, 0) + " s (sent " + (sent ? "true" : "false") + ")");
-    return true;
+      + FloatToStringPrec(d.duration, 0) + " s (sent " + (sent ? "true" : "false") + ")" + note);
   }
 
   private func SendMove(ai: ref<AIHumanComponent>, target: Vector4, stopAt: Float, offNavmesh: Bool) -> Void {
@@ -175,13 +205,26 @@ public class Driver extends IScriptable {
       let ended: Bool = Equals(st, AICommandState.Failure) || Equals(st, AICommandState.Cancelled) || Equals(st, AICommandState.Interrupted);
       if ended || elapsed > this.m_cfg.nativeTimeoutSeconds {
         // An instant Failure says more about the NPC's state (a reaction,
-        // a leftover behaviour) than about the spot, so a spot is written
-        // off for the native path only on its second failure.
+        // a leftover behaviour) than about the spot: 0.0.7 saw every
+        // native command fail at 0 s once the NPC had left a workspot on
+        // her own. So the first instant failure is not counted; the
+        // driver waits three seconds and sends the command once more.
+        // A spot is written off for the native path only on its second
+        // counted failure.
+        let instant: Bool = ended && elapsed < 1.0;
+        if instant && !this.m_nativeRetried {
+          this.m_nativeRetried = true;
+          HomebodyLog.Warn(this.m_label + " native command for " + d.spot.nodeKey + " failed at once (state " + IntToString(EnumInt(st))
+            + "); NPC " + Driver.NpcState(puppet) + "; re-sending in 3 s");
+          this.EndCommands(ai);
+          this.Enter(8, now);
+          return this.Result(DriverOutcome.Running, "");
+        };
         d.spot.nativeFailures += 1;
         d.spot.nativeFailed = d.spot.nativeFailures >= 2;
         HomebodyLog.Warn(this.m_label + " native path failed for " + d.spot.nodeKey + " (state " + IntToString(EnumInt(st))
-          + ", " + FloatToStringPrec(elapsed, 0) + " s, failure " + IntToString(d.spot.nativeFailures) + ")"
-          + (d.spot.nativeFailed ? "; marking native-failed" : ""));
+          + ", " + FloatToStringPrec(elapsed, 0) + " s, failure " + IntToString(d.spot.nativeFailures) + "); NPC "
+          + Driver.NpcState(puppet) + (d.spot.nativeFailed ? "; marking native-failed" : ""));
         this.EndCommands(ai);
         if this.m_cfg.manualPathAvailable && !this.m_manualRetry {
           this.m_manualRetry = true;
@@ -194,7 +237,8 @@ public class Driver extends IScriptable {
     };
     if this.m_stage == 2 {
       if !inSpot {
-        HomebodyLog.Info(this.m_label + " left spot " + d.spot.nodeKey + " on its own after " + FloatToStringPrec(elapsed, 0) + " s");
+        HomebodyLog.Info(this.m_label + " left spot " + d.spot.nodeKey + " on its own after " + FloatToStringPrec(elapsed, 0) + " s; NPC "
+          + Driver.NpcState(puppet) + "; command state " + IntToString(EnumInt(ai.GetCommandState(this.m_useCmd))));
         this.EndCommands(ai);
         this.m_stage = 0;
         return this.Result(DriverOutcome.Done, "finite");
@@ -283,6 +327,10 @@ public class Driver extends IScriptable {
         this.m_stage = 0;
         return this.Result(DriverOutcome.Done, "manual");
       };
+      return this.Result(DriverOutcome.Running, "");
+    };
+    if this.m_stage == 8 {
+      if elapsed >= 3.0 { this.SendNative(ai, now, " (re-sent; NPC " + Driver.NpcState(puppet) + ")"); };
       return this.Result(DriverOutcome.Running, "");
     };
     if this.m_stage == 7 {
