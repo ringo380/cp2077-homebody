@@ -244,3 +244,7 @@ animation is visible; to be confirmed with the user.
 Console: the user asked for progress while the probe runs, since it is
 hard to tell whether it is still going. 0.0.11 prints a status line to
 the console every three seconds and the full listing when it finishes.
+Confirmed by the user afterwards: the seat next to the couple was taken
+in this 0.0.10 round, where only the manual path seated her. So the manual
+path's animation is visible in the world; the oldest open question is
+closed.
