@@ -22,6 +22,9 @@ public class Spot extends IScriptable {
   public let unreachable: Bool;
   public let nativeFailed: Bool;
   public let nativeFailures: Int32;
+  // Set when the engine refuses the spot at once, which is what it does
+  // for a spot another NPC holds; the spot weighs nothing until then.
+  public let busyUntil: Float;
   // Device spots: the live furniture entity and the workspot component
   // on it to play in.
   public let deviceId: EntityID;

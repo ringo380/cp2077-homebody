@@ -39,6 +39,7 @@ public class Scheduler {
       if s.unreachable || (s.nativeFailed && !manualAllowed) { w = 0.0; };
       if Equals(s.source, SpotSource.Manual) && !manualAllowed { w = 0.0; };
       if s.lastUsedAt > 0.0 && now - s.lastUsedAt < rules.cooldownSeconds { w = 0.0; };
+      if s.busyUntil > now { w = 0.0; };
       if w < 0.0 { w = 0.0; };
       ArrayPush(weights, w);
       total += w;

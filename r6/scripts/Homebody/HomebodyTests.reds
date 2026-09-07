@@ -138,6 +138,14 @@ public func HomebodySchedulerTests(t: ref<HomebodyTest>) -> Void {
   t.AssertEqS(d4.spot.nodeKey, "b", "sch/cooldown-skips-recent");
   spots[0].lastUsedAt = 0.0;
 
+  // A spot the engine refused weighs nothing until its busy time passes.
+  spots[0].busyUntil = 1050.0;
+  let d4b: ref<Decision> = Scheduler.Decide(spots, 8, rules, 1000.0, center, true, 0.1, 0.5);
+  t.AssertEqS(d4b.spot.nodeKey, "b", "sch/busy-skipped");
+  let d4c: ref<Decision> = Scheduler.Decide(spots, 8, rules, 1100.0, center, true, 0.1, 0.5);
+  t.AssertEqS(d4c.spot.nodeKey, "a", "sch/busy-expires");
+  spots[0].busyUntil = 0.0;
+
   // Unreachable spots are skipped; native-failed ones only without the manual path.
   spots[0].unreachable = true;
   let d5: ref<Decision> = Scheduler.Decide(spots, 8, rules, 1000.0, center, true, 0.1, 0.5);

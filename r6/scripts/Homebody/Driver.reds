@@ -8,8 +8,16 @@ import Codeware.*
 // spot's workspot in it, and is what authored spots and native-failed spots
 // use. Stages: 0 idle, 1 native moving, 2 native in spot, 3 native
 // exiting, 4 manual moving, 5 manual device spawning, 6 manual in spot,
-// 7 wandering, 8 recovering before a native re-send. Every transition
-// logs with the label the controller set.
+// 7 wandering. Every transition logs with the label the controller set.
+//
+// Two things the engine does that the driver answers (2026-09-06 runs):
+// it refuses a use-workspot command at once (Failure in the same tick,
+// empty command queue, NPC relaxed) when another NPC holds the spot, so an
+// instant failure marks the spot busy for a while and picks again rather
+// than playing the manual path on top of the occupant; and it ends a
+// finite workspot after 30 to 40 s with the command in Success, so the
+// driver sends the same command again until the scheduled duration is
+// up, a few times at most.
 public class Driver extends IScriptable {
   private let m_cfg: ref<HomebodyConfig>;
   private let m_label: String;
@@ -21,7 +29,8 @@ public class Driver extends IScriptable {
   private let m_deviceId: EntityID;
   private let m_manualRetry: Bool;
   private let m_hopTried: Bool;
-  private let m_nativeRetried: Bool;
+  private let m_resends: Int32;
+  private let m_spotSince: Float;
 
   public func Init(cfg: ref<HomebodyConfig>, label: String) -> Void {
     this.m_cfg = cfg;
@@ -66,22 +75,6 @@ public class Driver extends IScriptable {
     return out;
   }
 
-  // The hard cancel before a native re-send: whatever workspot or move
-  // command the tree still holds, by class and by id, and the workspot
-  // system's own stop if the NPC is still counted as in one.
-  private func HardCancel(ai: ref<AIHumanComponent>, puppet: ref<ScriptedPuppet>) -> String {
-    let out: String = "";
-    if ai.CancelOrInterruptCommand(n"AIBaseUseWorkspotCommand", true, true) { out += " cancelled-workspot"; };
-    if ai.CancelOrInterruptCommand(n"AIMoveCommand", true, true) { out += " cancelled-move"; };
-    let id: Int32 = ai.GetActiveCommandID(n"AIUseWorkspotCommand");
-    if id >= 0 && ai.CancelCommandById(Cast<Uint32>(id), true) { out += " cancelled-by-id"; };
-    let wss: ref<WorkspotGameSystem> = GameInstance.GetWorkspotSystem(GetGameInstance());
-    if IsDefined(wss) && wss.IsActorInWorkspot(puppet) {
-      wss.StopNpcInWorkspot(puppet);
-      out += " stopped-in-workspot";
-    };
-    return Equals(out, "") ? " nothing to cancel" : out;
-  }
   public func IsActive() -> Bool { return this.m_stage != 0; }
   public func Stage() -> Int32 { return this.m_stage; }
   public func CurrentDecision() -> ref<Decision> { return this.m_decision; }
@@ -102,7 +95,8 @@ public class Driver extends IScriptable {
     this.m_decision = d;
     this.m_manualRetry = false;
     this.m_hopTried = false;
-    this.m_nativeRetried = false;
+    this.m_resends = 0;
+    this.m_spotSince = 0.0;
     let ai: ref<AIHumanComponent> = puppet.GetAIControllerComponent();
     if !IsDefined(ai) {
       HomebodyLog.Warn(this.m_label + " has no AI component; cannot drive");
@@ -224,28 +218,25 @@ public class Driver extends IScriptable {
       if inSpot {
         this.Enter(2, now);
         d.spot.lastUsedAt = now;
-        HomebodyLog.Info(this.m_label + " in spot " + d.spot.nodeKey + " after " + FloatToStringPrec(elapsed, 1) + " s");
+        if this.m_resends == 0 { this.m_spotSince = now; };
+        HomebodyLog.Info(this.m_label + " in spot " + d.spot.nodeKey + " after " + FloatToStringPrec(elapsed, 1) + " s"
+          + (this.m_resends > 0 ? " (sat back down " + IntToString(this.m_resends) + ")" : ""));
         return this.Result(DriverOutcome.Running, "");
       };
       let st: AICommandState = ai.GetCommandState(this.m_useCmd);
       let ended: Bool = Equals(st, AICommandState.Failure) || Equals(st, AICommandState.Cancelled) || Equals(st, AICommandState.Interrupted);
       if ended || elapsed > this.m_cfg.nativeTimeoutSeconds {
-        // An instant Failure says more about the NPC's state (a reaction,
-        // a leftover behaviour) than about the spot: 0.0.7 saw every
-        // native command fail at 0 s once the NPC had left a workspot on
-        // her own. So the first instant failure is not counted; the
-        // driver waits three seconds and sends the command once more.
-        // A spot is written off for the native path only on its second
-        // counted failure.
+        // Refused at once: another NPC holds the spot. Mark it busy and let
+        // the scheduler pick again; the manual path would seat the NPC on
+        // top of the occupant.
         let instant: Bool = ended && elapsed < 1.0;
-        if instant && !this.m_nativeRetried {
-          this.m_nativeRetried = true;
-          HomebodyLog.Warn(this.m_label + " native command for " + d.spot.nodeKey + " failed at once (state " + IntToString(EnumInt(st))
-            + "); NPC " + Driver.NpcState(puppet));
+        if instant && this.m_resends == 0 {
+          d.spot.busyUntil = now + 120.0;
+          HomebodyLog.Info(this.m_label + " spot " + d.spot.nodeKey + " refused at once (state " + IntToString(EnumInt(st))
+            + "); treating it as occupied for 120 s; NPC " + Driver.NpcState(puppet));
           this.EndCommands(ai);
-          HomebodyLog.Info(this.m_label + " hard cancel:" + this.HardCancel(ai, puppet) + "; re-sending in 3 s");
-          this.Enter(8, now);
-          return this.Result(DriverOutcome.Running, "");
+          this.m_stage = 0;
+          return this.Result(DriverOutcome.Failed, "occupied");
         };
         d.spot.nativeFailures += 1;
         d.spot.nativeFailed = d.spot.nativeFailures >= 2;
@@ -263,14 +254,22 @@ public class Driver extends IScriptable {
       return this.Result(DriverOutcome.Running, "");
     };
     if this.m_stage == 2 {
+      let sitting: Float = now - this.m_spotSince;
       if !inSpot {
+        let cs: AICommandState = ai.GetCommandState(this.m_useCmd);
+        let remaining: Float = d.duration - sitting;
         HomebodyLog.Info(this.m_label + " left spot " + d.spot.nodeKey + " on its own after " + FloatToStringPrec(elapsed, 0) + " s; NPC "
-          + Driver.NpcState(puppet) + "; command state " + IntToString(EnumInt(ai.GetCommandState(this.m_useCmd))));
+          + Driver.NpcState(puppet) + "; command state " + IntToString(EnumInt(cs)) + "; " + FloatToStringPrec(remaining, 0) + " s remain");
         this.EndCommands(ai);
+        if Equals(cs, AICommandState.Success) && remaining > 15.0 && this.m_resends < 3 {
+          this.m_resends += 1;
+          this.SendNative(ai, now, " (sitting back down " + IntToString(this.m_resends) + ")");
+          return this.Result(DriverOutcome.Running, "");
+        };
         this.m_stage = 0;
         return this.Result(DriverOutcome.Done, "finite");
       };
-      if elapsed >= d.duration {
+      if sitting >= d.duration {
         wss.SendFastExitSignal(puppet);
         this.Enter(3, now);
       };
@@ -354,10 +353,6 @@ public class Driver extends IScriptable {
         this.m_stage = 0;
         return this.Result(DriverOutcome.Done, "manual");
       };
-      return this.Result(DriverOutcome.Running, "");
-    };
-    if this.m_stage == 8 {
-      if elapsed >= 3.0 { this.SendNative(ai, now, " (re-sent; NPC " + Driver.NpcState(puppet) + ")"); };
       return this.Result(DriverOutcome.Running, "");
     };
     if this.m_stage == 7 {

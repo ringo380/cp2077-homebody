@@ -256,3 +256,22 @@ Confirmed by the user afterwards: the seat next to the couple was taken
 in this 0.0.10 round, where only the manual path seated her. So the manual
 path's animation is visible in the world; the oldest open question is
 closed.
+
+2026-09-06, 0.0.11. Occupancy: `occupancy: 0 puppets nearby, 0 in
+workspots, 0 spots taken` before every decision, with residents in view.
+The targeting query run from the roaming NPC returns nothing at all, so
+the filter was blind, not too tight. 0.0.13 runs it from the player.
+Native path: every instant failure logged `commands 0` and the hard cancel
+found `nothing to cancel`, and the 3 s re-send failed the same way every
+time (0 of 6), so the queue is clean and the engine is refusing the spot
+itself. The one bench that seated her on the first try in every run
+(`7185338493199956015`) did so again, `in spot ... after 5.6 s`, while the
+chairs the couple and the other residents sit on were refused at once.
+That is the engine's own reservation of a held spot, and the manual
+fallback was what sat her on the occupant. 0.0.13 treats an instant
+refusal as occupied: the spot weighs nothing for 120 s and the scheduler
+picks again, no manual play. The self-exit came with `command state 5`
+(Success) at 37 and 41 s, so the engine ends these finite workspots on
+its own; 0.0.13 sends the same command again while more than 15 s of the
+scheduled duration remain, three times at most. The corridor boundary's
+entity templates are drink tokens and a billboard, as expected.

@@ -4,7 +4,9 @@ module Homebody
 // probe run of 2026-09-06 sat the NPC on top of a resident. So a spot is
 // treated as taken when any other puppet that is in a workspot stands
 // within about a metre of it. The puppets are found with a targeting
-// query around the roaming NPC.
+// query run from the player: run from the roaming NPC the same query
+// returned nothing at all across six runs (0.0.11: 0 puppets nearby), and
+// the player is always within spawn range of the home.
 public class Occupancy {
   // raw receives the number of puppets the query returned before the
   // workspot filter, so the debug log can tell a blind query from a filter
@@ -14,18 +16,21 @@ public class Occupancy {
     raw = 0;
     let gi: GameInstance = GetGameInstance();
     let wss: ref<WorkspotGameSystem> = GameInstance.GetWorkspotSystem(gi);
+    let player: ref<PlayerPuppet> = GetPlayer(gi);
+    let searcher: ref<GameObject> = IsDefined(player) ? player : self;
     let query: TargetSearchQuery = TSQ_NPC();
     query.searchFilter = TSF_Any(TSFMV.Obj_Puppet);
-    query.maxDistance = radius;
+    query.maxDistance = radius + Vector4.Distance(searcher.GetWorldPosition(), self.GetWorldPosition());
     query.testedSet = TargetingSet.Complete;
     let parts: array<TS_TargetPartInfo>;
-    GameInstance.GetTargetingSystem(gi).GetTargetParts(self, query, parts);
+    GameInstance.GetTargetingSystem(gi).GetTargetParts(searcher, query, parts);
     let i: Int32 = 0;
     while i < ArraySize(parts) {
       let ent: wref<GameObject> = TS_TargetPartInfo.GetComponent(parts[i]).GetEntity() as GameObject;
       let other: ref<ScriptedPuppet> = ent as ScriptedPuppet;
-      if IsDefined(other) && !Equals(other.GetEntityID(), self.GetEntityID()) { raw += 1; };
-      if IsDefined(other) && !Equals(other.GetEntityID(), self.GetEntityID()) && wss.IsActorInWorkspot(other) {
+      let foreign: Bool = IsDefined(other) && !Equals(other.GetEntityID(), self.GetEntityID()) && !other.IsPlayer();
+      if foreign { raw += 1; };
+      if foreign && wss.IsActorInWorkspot(other) {
         ArrayPush(out, other.GetWorldPosition());
       };
       i += 1;
