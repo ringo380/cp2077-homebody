@@ -180,10 +180,11 @@ public class RoamController extends IScriptable {
       d.why = "outside boundary";
       HomebodyLog.Info(this.m_label + " outside the home boundary; walking back");
     } else {
-      let taken: array<Vector4> = Occupancy.TakenPositions(puppet, this.m_home.bounds.radius + this.m_cfg.boundaryMargin + 5.0);
+      let raw: Int32 = 0;
+      let taken: array<Vector4> = Occupancy.TakenPositions(puppet, this.m_home.bounds.radius + this.m_cfg.boundaryMargin + 5.0, raw);
       let free: array<ref<Spot>> = Occupancy.Free(this.m_spots, taken, 1.0);
       if this.m_cfg.debug {
-        HomebodyLog.Info(this.m_label + " occupancy: " + IntToString(ArraySize(taken)) + " puppets in workspots nearby, "
+        HomebodyLog.Info(this.m_label + " occupancy: " + IntToString(raw) + " puppets nearby, " + IntToString(ArraySize(taken)) + " in workspots, "
           + IntToString(ArraySize(this.m_spots) - ArraySize(free)) + " spots taken" + Occupancy.Nearest(this.m_spots, taken));
       };
       d = Scheduler.Decide(free, hour, this.m_rules, now, center, this.m_cfg.manualPathAvailable, RandF(), RandF());

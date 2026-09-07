@@ -6,8 +6,12 @@ module Homebody
 // within about a metre of it. The puppets are found with a targeting
 // query around the roaming NPC.
 public class Occupancy {
-  public static func TakenPositions(self: ref<ScriptedPuppet>, radius: Float) -> array<Vector4> {
+  // raw receives the number of puppets the query returned before the
+  // workspot filter, so the debug log can tell a blind query from a filter
+  // that drops seated crowd residents.
+  public static func TakenPositions(self: ref<ScriptedPuppet>, radius: Float, out raw: Int32) -> array<Vector4> {
     let out: array<Vector4>;
+    raw = 0;
     let gi: GameInstance = GetGameInstance();
     let wss: ref<WorkspotGameSystem> = GameInstance.GetWorkspotSystem(gi);
     let query: TargetSearchQuery = TSQ_NPC();
@@ -20,6 +24,7 @@ public class Occupancy {
     while i < ArraySize(parts) {
       let ent: wref<GameObject> = TS_TargetPartInfo.GetComponent(parts[i]).GetEntity() as GameObject;
       let other: ref<ScriptedPuppet> = ent as ScriptedPuppet;
+      if IsDefined(other) && !Equals(other.GetEntityID(), self.GetEntityID()) { raw += 1; };
       if IsDefined(other) && !Equals(other.GetEntityID(), self.GetEntityID()) && wss.IsActorInWorkspot(other) {
         ArrayPush(out, other.GetWorldPosition());
       };

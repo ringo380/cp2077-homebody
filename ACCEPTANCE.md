@@ -201,8 +201,8 @@ Every console command from 0.0.7 to 0.0.9 failed: HomebodyBridge.log
 shows `init.lua:45: unfinished string near '"'` on every load since
 18:12, a real line break inside a Lua string in Homes() where `\n` was
 meant, so CET never loaded the bridge and `GetMod("HomebodyBridge")` was
-nil. Fixed in 0.0.10 and the file is now checked with LuaJIT's loadfile
-before every zip. Steps 2, 7 and 11 over the apartment floor need the
+nil. Fixed in 0.0.10; the file is now loaded with LuaJIT's loadfile by
+hand before each zip. Steps 2, 7 and 11 over the apartment floor need the
 bridge, so they wait for 0.0.10.
 
 2026-09-06, 0.0.10. The bridge loads again and `Probe(15)` on the apartment
@@ -222,18 +222,25 @@ Native path: the very first command of the session (`drink
 Ignore/Ignore`, and the re-send after 3 s failed the same way; so did
 every later native command, including the `sit 4491241521636031788` that
 seated her on the first try in 0.0.7 and 0.0.9. The NPC's own state is
-clean at that moment, so the cause is in the command queue or the
-behaviour tree, not a reaction. 0.0.11 logs the active command count and
+clean at that moment, so the cause is in the command queue, the
+behaviour tree, or the engine's own reservation of a spot another NPC
+holds; it is not a reaction. The reservation reading fits too: the two
+first-try successes were on a bench that was free, and in this round she
+was sent to seats the user could see were occupied. 0.0.11 logs the active command count and
 the workspot and move command flags at the failure and does a hard cancel
 (by class, by id, and the workspot system's stop) before the re-send. The
 manual path carried every activity after that (`manual play` then `leaves`
 or `was out of` after 17 to 52 s).
-Observed in the world: she recognised the first seat was occupied and
+Observed in the world: she left the first seat, which was occupied, and
 took the second one, which was occupied too, by the second half of a
-hand-holding couple whose position overlaps that seat. The log never shows
-the occupancy filter skipping a spot, so it is not seeing those residents;
-0.0.11 logs how many seated puppets the query returns and how far the
-nearest one is from each spot.
+hand-holding couple whose position overlaps that seat. The log says the
+move was the scheduler picking the next spot after the first ended, not
+the occupancy filter: that filter has never skipped a spot in any run,
+so it is not seeing those residents. 0.0.11 logs how many puppets the
+query returns before and after the workspot filter and how far the
+nearest seated one is from each spot. Since every seated interval in this
+round was the manual path, her sitting at all here means the manual
+animation is visible; to be confirmed with the user.
 Console: the user asked for progress while the probe runs, since it is
 hard to tell whether it is still going. 0.0.11 prints a status line to
 the console every three seconds and the full listing when it finishes.
