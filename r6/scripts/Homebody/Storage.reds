@@ -9,10 +9,13 @@ import Codeware.*
 public class HomebodyStorageService extends ScriptableService {
   private let m_storage: ref<FileSystemStorage>;
   private let m_classifier: ref<ActivityClassifier>;
+  private let m_furniture: ref<FurnitureRules>;
 
   private cb func OnLoad() -> Void {
     this.m_classifier = new ActivityClassifier();
     this.m_classifier.InstallDefaults();
+    this.m_furniture = new FurnitureRules();
+    this.m_furniture.InstallDefaults();
     this.m_storage = FileSystem.GetStorage("Homebody");
     HomebodyTrace(this.m_storage, "svc-00-storage");
     if !IsDefined(this.m_storage) {
@@ -26,6 +29,10 @@ public class HomebodyStorageService extends ScriptableService {
 
   public func GetClassifier() -> ref<ActivityClassifier> {
     return this.m_classifier;
+  }
+
+  public func GetFurniture() -> ref<FurnitureRules> {
+    return this.m_furniture;
   }
 
   public static func Get() -> ref<HomebodyStorageService> {

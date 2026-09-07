@@ -199,6 +199,31 @@ public func HomebodyOccupancyTests(t: ref<HomebodyTest>) -> Void {
   t.AssertEqS(edge[0].nodeKey, "c", "occ/tolerance-edge-kept-c");
 }
 
+public func HomebodyFurnitureTests(t: ref<HomebodyTest>) -> Void {
+  let f: ref<FurnitureRules> = new FurnitureRules();
+  f.InstallDefaults();
+  let couch: ref<FurnitureRule> = f.Match("base\\environment\\decoration\\furniture\\couch\\couch_a.ent");
+  t.AssertTrue(IsDefined(couch), "furn/couch-matches");
+  if IsDefined(couch) { t.AssertEqS(couch.activity, "sit", "furn/couch-sit"); };
+  let bed: ref<FurnitureRule> = f.Match("base\\x\\bed_double_a.ent");
+  t.AssertTrue(IsDefined(bed), "furn/bed-matches");
+  if IsDefined(bed) { t.AssertEqS(bed.activity, "sleep", "furn/bed-sleep"); };
+  t.AssertTrue(!IsDefined(f.Match("base\\x\\bedside_lamp_a.ent")), "furn/lamp-skipped");
+  t.AssertTrue(!IsDefined(f.Match("base\\bedroom\\poster_a.ent")), "furn/folder-not-matched");
+  t.AssertTrue(!IsDefined(f.Match("base\\x\\couch_pillow_a.ent")), "furn/pillow-skipped");
+  t.AssertTrue(!IsDefined(f.Match("base\\x\\coffee_table_a.ent")), "furn/table-skipped");
+  if IsDefined(bed) {
+    let a: String = FurnitureRules.Pick(bed, 7u);
+    let b: String = FurnitureRules.Pick(bed, 7u);
+    t.AssertEqS(a, b, "furn/pick-stable");
+    t.AssertTrue(StrContains(a, ".workspot"), "furn/pick-is-path");
+  };
+  f.AddRule("stove", "cook", "base\\x\\cook.workspot");
+  let stove: ref<FurnitureRule> = f.Match("base\\x\\kitchen_stove_a.ent");
+  t.AssertTrue(IsDefined(stove), "furn/added-rule");
+  if IsDefined(stove) { t.AssertEqS(FurnitureRules.Pick(stove, 1u), "base\\x\\cook.workspot", "furn/added-path"); };
+}
+
 public func HomebodyRunSelfTests() -> String {
   let t: ref<HomebodyTest> = new HomebodyTest();
   t.AssertEqI(1, 1, "harness/smoke");
@@ -206,5 +231,6 @@ public func HomebodyRunSelfTests() -> String {
   HomebodyRegistryTests(t);
   HomebodySchedulerTests(t);
   HomebodyOccupancyTests(t);
+  HomebodyFurnitureTests(t);
   return t.Report();
 }

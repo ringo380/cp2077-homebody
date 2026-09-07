@@ -51,6 +51,8 @@ public class SpotDiscovery extends IScriptable {
   // interactions (personal link, computer, camera zoom); they are counted
   // and skipped, never offered to an NPC.
   private let m_playerWorkspots: Int32;
+  // Spots made from furniture entity templates, see Furniture.reds.
+  private let m_furnitureSpots: array<ref<Spot>>;
 
   // The cooked world and its block list. Night City is the only world the
   // game streams during play; both paths were verified against the base
@@ -82,6 +84,7 @@ public class SpotDiscovery extends IScriptable {
     ArrayClear(this.m_templates);
     ArrayClear(this.m_templateCounts);
     this.m_playerWorkspots = 0;
+    ArrayClear(this.m_furnitureSpots);
     this.m_nodesSeen = 0;
     let depot: ref<ResourceDepot> = GameInstance.GetResourceDepot();
     if !IsDefined(depot) {
@@ -114,7 +117,8 @@ public class SpotDiscovery extends IScriptable {
         + IntToString(ArraySize(this.m_spots)) + " spots and " + IntToString(ArraySize(this.m_deviceSpots)) + " device spots so far";
     };
     if Equals(this.m_state, DiscoveryState.Failed) { return "failed; see the log"; };
-    return "done: " + IntToString(ArraySize(this.m_spots)) + " spots, " + IntToString(ArraySize(this.m_deviceSpots)) + " device spots, "
+    return "done: " + IntToString(ArraySize(this.m_spots)) + " spots, " + IntToString(ArraySize(this.m_furnitureSpots)) + " furniture spots, "
+      + IntToString(ArraySize(this.m_deviceSpots)) + " device spots, "
       + IntToString(this.m_playerWorkspots) + " player workspots skipped, " + IntToString(this.m_sectorsRead) + " sectors read";
   }
 
@@ -124,6 +128,7 @@ public class SpotDiscovery extends IScriptable {
     let s: ref<Spot>;
     for s in this.m_spots { out += "spot " + SpotDiscovery.Describe(s) + "\n"; };
     for s in this.m_deviceSpots { out += "device spot " + SpotDiscovery.Describe(s) + " component " + NameToString(s.componentName) + "\n"; };
+    for s in this.m_furnitureSpots { out += "furniture spot " + SpotDiscovery.Describe(s) + "\n"; };
     out += "nodes inside the boundary: " + this.Census() + "\n";
     out += "entities: " + this.Entities() + "\n";
     out += "entity templates: " + this.Templates() + "\n";
@@ -318,11 +323,16 @@ public class SpotDiscovery extends IScriptable {
       for ds in this.m_deviceSpots {
         HomebodyLog.Info(this.m_label + " device spot " + SpotDiscovery.Describe(ds) + " component " + NameToString(ds.componentName));
       };
+      HomebodyLog.Info(this.m_label + " discovery furniture: " + IntToString(ArraySize(this.m_furnitureSpots)) + " spots from entity templates");
+      for ds in this.m_furnitureSpots {
+        HomebodyLog.Info(this.m_label + " furniture spot " + SpotDiscovery.Describe(ds));
+      };
       this.m_state = DiscoveryState.Done;
     };
   }
 
   public func GetDeviceSpots() -> array<ref<Spot>> { return this.m_deviceSpots; }
+  public func GetFurnitureSpots() -> array<ref<Spot>> { return this.m_furnitureSpots; }
 
   private func Count(cls: CName) -> Void {
     let i: Int32 = 0;
@@ -391,6 +401,7 @@ public class SpotDiscovery extends IScriptable {
     let byRef: ref<GameObject> = GameInstance.FindEntityByID(gi, Cast<EntityID>(gref)) as GameObject;
     if IsDefined(byRef) { this.m_resolvedByRef += 1; };
     let obj: ref<GameObject> = IsDefined(byHash) ? byHash : byRef;
+    if IsDefined(en) { this.ReadFurniture(en, setup, gid, obj); };
     if !IsDefined(obj) { return; };
     let comps: array<ref<IComponent>> = obj.GetComponents();
     let found: Int32 = 0;
@@ -423,6 +434,31 @@ public class SpotDiscovery extends IScriptable {
       };
     };
     if found > 0 { this.m_withWorkspot += 1; };
+  }
+
+  // A furniture rule on the entity template makes a manual spot at the
+  // entity's position and facing. The live entity's transform is used when
+  // it resolves, since a streamed entity can sit a little off its node.
+  private func ReadFurniture(en: ref<worldEntityNode>, setup: ref<WorldNodeSetupWrapper>, gid: GlobalNodeID, obj: ref<GameObject>) -> Void {
+    let rules: ref<FurnitureRules> = FurnitureRules.Get();
+    if !IsDefined(rules) { return; };
+    let tpl: ResourceAsyncRef = en.entityTemplate;
+    let path: String = ResRef.ToString(ResourceAsyncRef.GetPath(tpl));
+    let rule: ref<FurnitureRule> = rules.Match(path);
+    if !IsDefined(rule) { return; };
+    let s: ref<Spot> = new Spot();
+    s.nodeRef = setup.GetNodeRef();
+    s.nodeKey = "furniture-" + ToString(gid.hash);
+    s.position = IsDefined(obj) ? obj.GetWorldPosition() : setup.GetPosition();
+    let q: Quaternion = IsDefined(obj) ? obj.GetWorldOrientation() : setup.GetOrientation();
+    let e: EulerAngles = Quaternion.ToEulerAngles(q);
+    s.yaw = e.Yaw;
+    s.workspotPath = FurnitureRules.Pick(rule, gid.hash);
+    s.activity = rule.activity;
+    s.source = SpotSource.Manual;
+    s.isInfinite = true;
+    ArrayPush(s.markings, StringToName(FurnitureRules.FileName(path)));
+    ArrayPush(this.m_furnitureSpots, s);
   }
 
   private func ReadSector(sector: ref<worldStreamingSector>) -> Void {

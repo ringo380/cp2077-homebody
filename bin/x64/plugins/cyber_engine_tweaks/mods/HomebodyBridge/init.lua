@@ -114,6 +114,14 @@ function Homebody.SetRules(entity, rulesName) local sys = system(); return sys ~
 function Homebody.Dump(homeId) local sys = system(); if sys then say(sys:DumpSpots(homeId or "example")) end end
 function Homebody.Rule(match, activity) local sys = system(); if sys then sys:AddClassifierRule(match, activity) end end
 function Homebody.Rescan(homeId) local sys = system(); return sys ~= nil and sys:Rescan(homeId or "example") end
+-- Furniture(match, activity, workspot) adds a furniture rule: a word in an
+-- entity template's file name, the activity, and a vanilla workspot path.
+-- Furniture() alone prints the rules in force.
+function Homebody.Furniture(match, activity, workspot)
+    local sys = system(); if not sys then say("system not available"); return end
+    if match and activity and workspot then sys:AddFurnitureRule(match, activity, workspot) end
+    say("furniture rules: " .. tostring(sys:FurnitureRulesText()))
+end
 
 registerForEvent("onInit", function()
     local ok, err = pcall(function() say("bridge loaded") end)

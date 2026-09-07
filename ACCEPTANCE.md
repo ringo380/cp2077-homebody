@@ -94,6 +94,14 @@ scripts compiled.
     apartment) can be driven. Run it once in the corridor and once with a
     home whose bounds cover the apartment interior.
 
+12. Furniture (0.0.12). Stand on the apartment floor and run
+    `GetMod("HomebodyBridge").Probe(15)`. Expect `furniture spot
+    furniture-<hash> at (...) sleep ... [bed_...] base\workspots\common\bed\...`
+    lines for the bed and couch in the console listing, and `discovery
+    furniture: N spots from entity templates` in the log. With a home whose
+    bounds cover the apartment floor, expect `manual walk to sit
+    furniture-...` and the NPC sitting on the couch.
+
 ## Findings
 
 2026-09-05, 0.0.2, step 2: the probe ran but the streaming world object

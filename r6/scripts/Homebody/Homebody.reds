@@ -217,6 +217,12 @@ public class HomebodySystem extends ScriptableSystem {
     let d: ref<SpotDiscovery> = this.EnsureDiscovery(home);
     if !d.IsDone() && !d.IsFailed() { return out; };
     let found: array<ref<Spot>> = d.GetSpots();
+    let cfg: ref<HomebodyConfig> = this.m_registry.GetConfig();
+    if cfg.furnitureSpots && cfg.manualPathAvailable {
+      let f: ref<Spot>;
+      let furniture: array<ref<Spot>> = d.GetFurnitureSpots();
+      for f in furniture { ArrayPush(found, f); };
+    };
     let s: ref<Spot>;
     for s in found {
       let excluded: Bool = false;
@@ -337,6 +343,19 @@ public class HomebodySystem extends ScriptableSystem {
   public func AddClassifierRule(match: String, activity: String) -> Void {
     let cls: ref<ActivityClassifier> = ActivityClassifier.Get();
     if IsDefined(cls) { cls.AddRule(match, activity); };
+  }
+
+  // A furniture rule: a word in an entity template's file name, the
+  // activity, and a vanilla workspot to play at that entity. Takes effect
+  // on the next discovery (Rescan).
+  public func AddFurnitureRule(match: String, activity: String, workspot: String) -> Void {
+    let rules: ref<FurnitureRules> = FurnitureRules.Get();
+    if IsDefined(rules) { rules.AddRule(match, activity, workspot); };
+  }
+
+  public func FurnitureRulesText() -> String {
+    let rules: ref<FurnitureRules> = FurnitureRules.Get();
+    return IsDefined(rules) ? rules.Describe() : "";
   }
 
   // Drops a home's discovery so the next tick runs it again, for use after

@@ -1,6 +1,7 @@
 {
   "runSelfTest": true,
   "debug": true,
+  "furnitureSpots": true,
   "tickSeconds": 0.5,
   "nativeTimeoutSeconds": 25.0,
   "moveTimeoutSeconds": 40.0,

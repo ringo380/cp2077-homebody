@@ -5,6 +5,9 @@ import RedData.Json.*
 public class HomebodyConfig extends IScriptable {
   public let runSelfTest: Bool = true;
   public let debug: Bool = false;
+  // Spots made from furniture entity templates (see Furniture.reds) join
+  // every home's list. They use the manual path.
+  public let furnitureSpots: Bool = true;
   public let tickSeconds: Float = 0.5;
   public let nativeTimeoutSeconds: Float = 25.0;
   public let moveTimeoutSeconds: Float = 40.0;
@@ -181,6 +184,7 @@ public class HomeRegistry extends IScriptable {
     let o: ref<JsonObject> = root as JsonObject;
     if o.HasKey("runSelfTest") { c.runSelfTest = o.GetKeyBool("runSelfTest"); };
     if o.HasKey("debug") { c.debug = o.GetKeyBool("debug"); };
+    if o.HasKey("furnitureSpots") { c.furnitureSpots = o.GetKeyBool("furnitureSpots"); };
     if o.HasKey("tickSeconds") { c.tickSeconds = HomeRegistry.NumOf(o.GetKey("tickSeconds")); };
     if o.HasKey("nativeTimeoutSeconds") { c.nativeTimeoutSeconds = HomeRegistry.NumOf(o.GetKey("nativeTimeoutSeconds")); };
     if o.HasKey("moveTimeoutSeconds") { c.moveTimeoutSeconds = HomeRegistry.NumOf(o.GetKey("moveTimeoutSeconds")); };

@@ -127,11 +127,28 @@ hb.Pause(handle, "why"); hb.Resume(handle)
 hb.Detach(handle)
 hb.Dump("judy_apartment")             -- every spot with its node key, to the log
 hb.Rule("hookah", "smoke")            -- classifier rule, then hb.Rescan(homeId)
+hb.Furniture("stove", "cook", "base\\workspots\\market\\bar\\generic__stand_wok__cook__01.workspot")
 ```
 
 Console helpers for a look without a consumer mod: `hb.Homes()`,
 `hb.Status()`, `hb.AttachProbe(homeId)`, `hb.Probe(radius)`,
 `hb.Use(index)`, `hb.Cleanup()`.
+
+### Furniture without AI spots
+
+Player apartments carry no NPC workspots on their couches and beds, so
+discovery also reads every entity inside the boundary and matches a word
+in its template file name (`couch`, `sofa`, `armchair`, `chair`, `stool`,
+`bed`, `mattress`, `sink`) to an activity and a set of vanilla workspots.
+The spot sits at the entity's own position and facing, plays through the
+manual path (entSpawner required), and shows in `Dump` and the log as
+`furniture-<hash>` with the template name in its markings. Words such as
+`lamp`, `pillow`, `table` and `shelf` are skipped so a bedside lamp is
+not a bed. `Furniture(match, activity, workspot)` adds a rule and
+`Furniture()` prints the rules in force; `Rescan` applies them. A
+furniture spot that sits the NPC wrong can be excluded by its key and
+replaced with an `extraSpots` entry, and `furnitureSpots: false` in
+`config.json` turns the whole thing off.
 
 ### Behaviour worth knowing
 
@@ -144,8 +161,9 @@ Console helpers for a look without a consumer mod: `hb.Homes()`,
 - The NPC pauses on its own during scenes, combat, and any workspot the
   driver did not start, and resumes afterwards. Dead or missing entities
   drop their controller.
-- Homes without AI spots inside them (player apartments are like this) need
-  `extraSpots`, and so entSpawner. The workspots a player apartment's
+- Homes without AI spots inside them (player apartments are like this) get
+  furniture spots from the template matching above, plus `extraSpots` for
+  anything it misses; both need entSpawner. The workspots a player apartment's
   devices carry (personal link, computer, camera) are the player's own
   interactions and are never offered to an NPC; the couch and bed carry
   none at all.
