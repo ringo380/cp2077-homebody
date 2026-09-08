@@ -26,10 +26,11 @@ citizens use to take a seat.
 
 ## Install
 
-Import the release zip through Vortex. The shipped example home is the
-corridor outside the Downtown apartment; its resident spawns when the
-player comes within 40 m. `ACCEPTANCE.md` lists the log lines that prove
-each part works.
+Import the release zip through Vortex. Two homes ship: `example`, the
+corridor outside the Downtown apartment, whose resident spawns when the
+player comes within 40 m; and `apartment`, the apartment floor itself,
+attach-only, for `AttachProbe("apartment")` from the console.
+`ACCEPTANCE.md` lists the log lines that prove each part works.
 
 ## For modders
 
