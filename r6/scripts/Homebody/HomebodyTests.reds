@@ -220,6 +220,10 @@ public func HomebodyFurnitureTests(t: ref<HomebodyTest>) -> Void {
   t.AssertTrue(!IsDefined(f.Match("base\\bedroom\\poster_a.ent")), "furn/folder-not-matched");
   t.AssertTrue(!IsDefined(f.Match("base\\x\\couch_pillow_a.ent")), "furn/pillow-skipped");
   t.AssertTrue(!IsDefined(f.Match("base\\x\\coffee_table_a.ent")), "furn/table-skipped");
+  let mesh: ref<FurnitureRule> = f.Match("base\\environment\\decoration\\furniture\\sofa_b.mesh");
+  t.AssertTrue(IsDefined(mesh), "furn/mesh-matches");
+  if IsDefined(mesh) { t.AssertEqS(mesh.activity, "sit", "furn/mesh-sofa-sit"); };
+  t.AssertTrue(!IsDefined(f.Match("base\\x\\couch_cushion_a.mesh")), "furn/cushion-skipped");
   if IsDefined(bed) {
     let a: String = FurnitureRules.Pick(bed, 7u);
     let b: String = FurnitureRules.Pick(bed, 7u);

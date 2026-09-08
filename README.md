@@ -136,13 +136,16 @@ Console helpers for a look without a consumer mod: `hb.Homes()`,
 
 ### Furniture without AI spots
 
-Player apartments carry no NPC workspots on their couches and beds, so
-discovery also reads every entity inside the boundary and matches a word
-in its template file name (`couch`, `sofa`, `armchair`, `chair`, `stool`,
+Player apartments carry no NPC workspots on their couches and beds, and
+that furniture is mostly static meshes rather than entities, so discovery
+also reads every entity and mesh node inside the boundary and matches a
+word in its file name (`couch`, `sofa`, `armchair`, `chair`, `stool`,
 `bed`, `mattress`, `sink`) to an activity and a set of vanilla workspots.
-The spot sits at the entity's own position and facing, plays through the
+The spot sits at the node's own position and facing, plays through the
 manual path (entSpawner required), and shows in `Dump` and the log as
-`furniture-<hash>` with the template name in its markings. Words such as
+`furniture-<hash>` with the file name in its markings. `Probe` lists the
+mesh and template names it saw, which is where to find the word for a
+rule of your own. Words such as
 `lamp`, `pillow`, `table` and `shelf` are skipped so a bedside lamp is
 not a bed. `Furniture(match, activity, workspot)` adds a rule and
 `Furniture()` prints the rules in force; `Rescan` applies them. A

@@ -1,10 +1,12 @@
 module Homebody
 
 // Turns furniture the game placed no AI spot on into spots. Discovery reads
-// every entity node inside the boundary and names its entity template
-// (base\...\couch_a.ent); a rule matches a word in that path and gives the
-// activity and the vanilla workspots to play there. The spot sits at the
-// entity's own position and facing and uses the manual path, so entSpawner
+// every entity node and mesh node inside the boundary and names its entity
+// template or mesh (base\...\couch_a.ent, ...\sofa_b.mesh); a rule matches
+// a word in that file name and gives the activity and the vanilla workspots
+// to play there. A player apartment's couch and bed are static meshes. The
+// spot sits at the node's own position and facing and uses the manual
+// path, so entSpawner
 // is needed, and a home's exclude and retag entries apply to it by its
 // furniture-<hash> key. Player apartments are where this matters: their
 // couches and beds carry no NPC workspot at all (2026-09-06 census).
@@ -46,6 +48,11 @@ public class FurnitureRules extends IScriptable {
     this.AddSkip("wardrobe");
     this.AddSkip("closet");
     this.AddSkip("wheelchair");
+    this.AddSkip("cushion");
+    this.AddSkip("cover");
+    this.AddSkip("leg");
+    this.AddSkip("_bedroom");
+    this.AddSkip("_bedside");
     this.AddRule("couch", "sit", "base\\workspots\\common\\couch\\generic__sit_couch__sit_around__01.workspot");
     this.AddRule("couch", "sit", "base\\workspots\\common\\couch\\generic__sit_couch__sit_around__02.workspot");
     this.AddRule("couch", "sit", "base\\workspots\\common\\couch\\generic__sit_couch__sit_around__03.workspot");

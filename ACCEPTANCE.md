@@ -275,3 +275,21 @@ picks again, no manual play. The self-exit came with `command state 5`
 its own; 0.0.13 sends the same command again while more than 15 s of the
 scheduled duration remain, three times at most. The corridor boundary's
 entity templates are drink tokens and a billboard, as expected.
+
+2026-09-08, 0.0.13. Step 5: `passed=93 failed=0`. Occupancy works from
+the player: `occupancy: 26 puppets nearby, 19 in workspots, 3 spots
+taken; 4491241521636031788 has one 0 m away; 7185338493199956015 has one
+0 m away; 7185339592711584226 has one 0.71 m away` while the couple and
+the other residents sat in the corridor, and `0 spots taken` once they
+left. So the corridor chairs the engine refused were indeed held, and
+both defences now agree. No native command was sent in this run: the
+game clock was in the 23 to 6 phase of the default rules, where only
+sleep, toilet and idle weigh, so she idled (`idles 45 s (idle)`) as the
+rules say. Step 12: `probe discovery furniture: 0 spots from entity
+templates` on the apartment floor, and the template census explains why:
+the entities there are devices (TV, radio, computer, wardrobe, doors,
+frames), loot tokens and quest gifts. The couch and bed are among the
+352 `worldStaticMeshNode` and 144 `worldInstancedDestructibleMeshNode`
+nodes. 0.0.14 matches mesh file names as well and lists them in the
+probe. The probe also found the sixth corridor spot again and one
+non-player device workspot (`ToggleZoomInteraction` with an empty path).

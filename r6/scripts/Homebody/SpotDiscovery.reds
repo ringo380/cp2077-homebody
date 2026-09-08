@@ -51,8 +51,14 @@ public class SpotDiscovery extends IScriptable {
   // interactions (personal link, computer, camera zoom); they are counted
   // and skipped, never offered to an NPC.
   private let m_playerWorkspots: Int32;
-  // Spots made from furniture entity templates, see Furniture.reds.
+  // Spots made from furniture entity templates and mesh nodes, see
+  // Furniture.reds. The mesh file names inside the boundary are counted
+  // too: a player apartment's couch and bed are static meshes, not
+  // entities (2026-09-08 census), so the mesh names are what a furniture
+  // rule has to match.
   private let m_furnitureSpots: array<ref<Spot>>;
+  private let m_meshes: array<String>;
+  private let m_meshCounts: array<Int32>;
 
   // The cooked world and its block list. Night City is the only world the
   // game streams during play; both paths were verified against the base
@@ -85,6 +91,8 @@ public class SpotDiscovery extends IScriptable {
     ArrayClear(this.m_templateCounts);
     this.m_playerWorkspots = 0;
     ArrayClear(this.m_furnitureSpots);
+    ArrayClear(this.m_meshes);
+    ArrayClear(this.m_meshCounts);
     this.m_nodesSeen = 0;
     let depot: ref<ResourceDepot> = GameInstance.GetResourceDepot();
     if !IsDefined(depot) {
@@ -132,6 +140,7 @@ public class SpotDiscovery extends IScriptable {
     out += "nodes inside the boundary: " + this.Census() + "\n";
     out += "entities: " + this.Entities() + "\n";
     out += "entity templates: " + this.Templates() + "\n";
+    out += "meshes: " + SpotDiscovery.CountsText(this.m_meshes, this.m_meshCounts) + "\n";
     out += this.Progress();
     return out;
   }
@@ -319,6 +328,7 @@ public class SpotDiscovery extends IScriptable {
       HomebodyLog.Info(this.m_label + " discovery census inside the boundary: " + this.Census());
       HomebodyLog.Info(this.m_label + " discovery entities: " + this.Entities());
       HomebodyLog.Info(this.m_label + " discovery entity templates inside the boundary: " + this.Templates());
+      HomebodyLog.Info(this.m_label + " discovery meshes inside the boundary: " + SpotDiscovery.CountsText(this.m_meshes, this.m_meshCounts));
       let ds: ref<Spot>;
       for ds in this.m_deviceSpots {
         HomebodyLog.Info(this.m_label + " device spot " + SpotDiscovery.Describe(ds) + " component " + NameToString(ds.componentName));
@@ -348,26 +358,34 @@ public class SpotDiscovery extends IScriptable {
   }
 
   private func CountTemplate(key: String) -> Void {
+    SpotDiscovery.CountKey(this.m_templates, this.m_templateCounts, key);
+  }
+
+  private static func CountKey(keys: script_ref<array<String>>, counts: script_ref<array<Int32>>, key: String) -> Void {
     let i: Int32 = 0;
-    while i < ArraySize(this.m_templates) {
-      if Equals(this.m_templates[i], key) {
-        this.m_templateCounts[i] += 1;
+    while i < ArraySize(Deref(keys)) {
+      if Equals(Deref(keys)[i], key) {
+        Deref(counts)[i] += 1;
         return;
       };
       i += 1;
     };
-    ArrayPush(this.m_templates, key);
-    ArrayPush(this.m_templateCounts, 1);
+    ArrayPush(Deref(keys), key);
+    ArrayPush(Deref(counts), 1);
   }
 
-  private func Templates() -> String {
+  private static func CountsText(keys: array<String>, counts: array<Int32>) -> String {
     let out: String = "";
     let i: Int32 = 0;
-    while i < ArraySize(this.m_templates) {
-      out += (i > 0 ? ", " : "") + this.m_templates[i] + " " + IntToString(this.m_templateCounts[i]);
+    while i < ArraySize(keys) {
+      out += (i > 0 ? ", " : "") + keys[i] + " " + IntToString(counts[i]);
       i += 1;
     };
     return out;
+  }
+
+  private func Templates() -> String {
+    return SpotDiscovery.CountsText(this.m_templates, this.m_templateCounts);
   }
 
   private func Census() -> String {
@@ -408,7 +426,8 @@ public class SpotDiscovery extends IScriptable {
     let c: ref<IComponent>;
     for c in comps {
       let w: ref<WorkspotResourceComponent> = c as WorkspotResourceComponent;
-      if IsDefined(w) && StrBeginsWith(ResRef.ToString(ResourceAsyncRef.GetPath(w.workspotResource)), "base\\gameplay\\") {
+      let wpath: String = IsDefined(w) ? ResRef.ToString(ResourceAsyncRef.GetPath(w.workspotResource)) : "";
+      if IsDefined(w) && (Equals(wpath, "") || StrBeginsWith(wpath, "base\\gameplay\\")) {
         found += 1;
         this.m_playerWorkspots += 1;
       } else if IsDefined(w) {
@@ -440,17 +459,41 @@ public class SpotDiscovery extends IScriptable {
   // entity's position and facing. The live entity's transform is used when
   // it resolves, since a streamed entity can sit a little off its node.
   private func ReadFurniture(en: ref<worldEntityNode>, setup: ref<WorldNodeSetupWrapper>, gid: GlobalNodeID, obj: ref<GameObject>) -> Void {
-    let rules: ref<FurnitureRules> = FurnitureRules.Get();
-    if !IsDefined(rules) { return; };
     let tpl: ResourceAsyncRef = en.entityTemplate;
     let path: String = ResRef.ToString(ResourceAsyncRef.GetPath(tpl));
+    let pos: Vector4 = IsDefined(obj) ? obj.GetWorldPosition() : setup.GetPosition();
+    let q: Quaternion = IsDefined(obj) ? obj.GetWorldOrientation() : setup.GetOrientation();
+    this.MakeFurniture(path, setup, gid, pos, q);
+  }
+
+  // Static and destructible mesh nodes inside the boundary: count the mesh
+  // file name and match it against the furniture rules.
+  private func ReadMeshNode(node: ref<worldNode>, setup: ref<WorldNodeSetupWrapper>) -> Void {
+    let path: String = "";
+    let m: ref<worldMeshNode> = node as worldMeshNode;
+    let d: ref<worldInstancedDestructibleMeshNode> = node as worldInstancedDestructibleMeshNode;
+    if IsDefined(m) {
+      let r: ResourceAsyncRef = m.mesh;
+      path = ResRef.ToString(ResourceAsyncRef.GetPath(r));
+    } else if IsDefined(d) {
+      let r2: ResourceAsyncRef = d.mesh;
+      path = ResRef.ToString(ResourceAsyncRef.GetPath(r2));
+    } else {
+      return;
+    };
+    SpotDiscovery.CountKey(this.m_meshes, this.m_meshCounts, FurnitureRules.FileName(path));
+    this.MakeFurniture(path, setup, setup.GetGlobalNodeID(), setup.GetPosition(), setup.GetOrientation());
+  }
+
+  private func MakeFurniture(path: String, setup: ref<WorldNodeSetupWrapper>, gid: GlobalNodeID, pos: Vector4, q: Quaternion) -> Void {
+    let rules: ref<FurnitureRules> = FurnitureRules.Get();
+    if !IsDefined(rules) { return; };
     let rule: ref<FurnitureRule> = rules.Match(path);
     if !IsDefined(rule) { return; };
     let s: ref<Spot> = new Spot();
     s.nodeRef = setup.GetNodeRef();
     s.nodeKey = "furniture-" + ToString(gid.hash);
-    s.position = IsDefined(obj) ? obj.GetWorldPosition() : setup.GetPosition();
-    let q: Quaternion = IsDefined(obj) ? obj.GetWorldOrientation() : setup.GetOrientation();
+    s.position = pos;
     let e: EulerAngles = Quaternion.ToEulerAngles(q);
     s.yaw = e.Yaw;
     s.workspotPath = FurnitureRules.Pick(rule, gid.hash);
@@ -474,6 +517,8 @@ public class SpotDiscovery extends IScriptable {
         this.Count(node.GetClassName());
         if IsDefined(node as worldEntityNode) || IsDefined(node as worldDeviceNode) {
           this.ReadEntityNode(setup, node, setup.GetPosition());
+        } else {
+          this.ReadMeshNode(node, setup);
         };
       };
       let spotNode: ref<worldAISpotNode> = node as worldAISpotNode;
