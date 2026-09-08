@@ -7,7 +7,10 @@ call at the window, showers, and so on, for as long as the player is around.
 Other mods use it by dropping a JSON file in a folder, or by attaching an NPC
 they already spawned.
 
-Status: design approved 2026-09-05, implementation not started.
+Status: design approved 2026-09-05; implemented as version 0.1.0 on
+2026-09-08. The sections below are the design as approved. What was built
+differs in the places listed under "Deviations and findings" at the end,
+which is the part to read first when the code and this document disagree.
 
 ## Goals
 
@@ -370,17 +373,22 @@ Mod Settings page `Homebody`, optional at compile time:
 
 ```
 r6/scripts/Homebody/
-  Homebody.reds            module, system, service, storage
-  HomeRegistry.reds
-  SpotDiscovery.reds
+  Homebody.reds            the system: tick, homes, controllers, the API
+  Storage.reds             the service that holds storage, classifier, furniture rules
+  Log.reds                 FTLog wrappers
+  Types.reds               Spot, Bounds, Decision, DriverResult
+  HomeRegistry.reds        config, homes, rules
+  SpotDiscovery.reds       sectors, AI spots, census, device and furniture spots
   ActivityClassifier.reds
+  Furniture.reds           entity template rules and their workspots
+  Occupancy.reds
   Scheduler.reds
   Driver.reds
   RoamController.reds
   Spawner.reds
-  Api.reds
+  Probe.reds               console probe: discovery around the player, one native use
   HomebodySettings.reds
-  HomebodyTests.reds
+  TestKit.reds  HomebodyTests.reds
 r6/storages/Homebody/home.example.json
 r6/storages/Homebody/rules.default.json
 r6/storages/Homebody/config.json
@@ -389,5 +397,85 @@ docs/design.md
 README.md  ACCEPTANCE.md  LICENSE
 ```
 
-Dependencies: Codeware, RedFileSystem; optional Mod Settings. Packaged
-with the tooling repo's `stage-mod.ps1` and imported through Vortex.
+Dependencies: Codeware, RedFileSystem, RedData; optional Mod Settings and
+entSpawner (manual path). Packaged with the tooling repo's `stage-mod.ps1`
+and imported through Vortex.
+
+## Deviations and findings
+
+Recorded while building 0.0.1 to 0.0.13 on 2026-09-05 and 2026-09-06; the
+log lines behind each are in `ACCEPTANCE.md`.
+
+Discovery. The streaming world object the running game hands back lists
+no block refs, and so does the same resource loaded again by path, so
+discovery loads `blocks\all.streamingblock` directly (24132 sectors).
+Loading is polled through resource tokens on the tick, not driven by
+callbacks. Only exterior and interior sectors are read: quest sectors are
+thousands and carry world-sized boxes, navigation sectors hold navmesh.
+Neither the streaming level nor the box size can filter further: the five
+spots outside the example apartment live in a level 1 exterior sector with
+a 679 m box. Eight sectors are read per tick; 327 sectors take about
+23 s. Discovery also counts every node class inside the boundary, names
+the entity templates there, and lists the workspot components of live
+entities, skipping the ones under `base\gameplay\` (the player's own
+personal link, computer and camera interactions).
+
+Furniture. A player apartment's couch, bed and shower carry no NPC
+workspot at all, and the apartment floor has no `worldAISpotNode`; the
+game's own AI spots for that building are in the corridor. So
+`Furniture.reds` (not in the approved design) matches a word in each
+entity template's file name to an activity and a set of vanilla workspots
+from the common library, and makes a manual spot at the entity. The
+device path the design's "Task 8b" census was meant to clear was dropped.
+
+Spot record. The node key is the decimal string of the global node id
+hash (a Uint64 does not survive JSON). Added fields: `nativeFailures`,
+`busyUntil`, and for device spots `deviceId` and `componentName`.
+Furniture spots carry the template file name as a marking.
+
+Native path. Proven: the engine walks the NPC to the spot and seats her
+in 2 to 13 s. Two engine behaviours changed the driver. A use-workspot
+command that fails in the same tick it was sent, with an empty command
+queue and the NPC relaxed, is the engine refusing a spot another NPC
+holds; the driver marks the spot busy for 120 s and the scheduler picks
+again. It does not fall back to the manual path there, because that
+seated her on top of the occupant. And the engine ends these finite
+workspots after 30 to 40 s with the command in Success, so the driver
+sends the same command again while more than 15 s of the scheduled
+duration remain, three times at most. The manual path (entSpawner's
+device, `PlayInDeviceSimple`) is proven and its animation is visible.
+
+Occupancy. There is no reservation query for world spots. The check
+looks for other puppets in a workspot within a metre of a spot, using a
+targeting query. Run from the roaming NPC that query returned no puppets
+at all; it now runs from the player. Whether it returns crowd residents
+is not yet proven.
+
+Scheduler. Manual and furniture spots weigh nothing when the manual path
+is unavailable; a busy spot weighs nothing until its time passes.
+
+Controller. Interruptions: the API pause, death, combat
+(`NPCPuppet.IsInCombat`), a scene holding the puppet, and a workspot the
+driver did not start (ignored while the driver expects one, since the
+native command seats the NPC before the next tick sees it). The "game in
+a menu" check in the design is not implemented. `OnPlayerAttach` fires on every save load,
+so the tick chain carries a generation number and old chains retire.
+
+Settings. The Mod Settings page has Enabled, Debug logging, and the two
+timeouts. Off-navmesh hops, the self-test switch, the spawn ranges, the
+furniture switch and the device entity path live in `config.json`.
+
+API. `Pause` takes a reason. Added: `Rescan`, `ListHomes`,
+`ListControllers`, `AttachProbe`, the `Probe*` entry points with a status
+and listing for the console, `AddFurnitureRule` and `FurnitureRulesText`.
+`GetSpots` from the design is `DumpSpots` plus `SpotsFor`.
+
+Testing. The self tests run at script load when `runSelfTest` is true in
+`config.json` (not the debug flag) and cover the classifier, registry,
+bounds, scheduler, occupancy filter and furniture rules; the in-game
+counts are in `ACCEPTANCE.md`.
+The acceptance list grew to twelve steps. Two lessons from the runs:
+measure a returned array only after binding it to a local (two self
+tests read 0 and 3 from an inline `ArraySize`), and load the Lua bridge
+with LuaJIT's `loadfile` before each zip (a line break inside a string
+kept the whole bridge from loading for three versions).
