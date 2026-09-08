@@ -146,7 +146,7 @@ manual path (entSpawner required), and shows in `Dump` and the log as
 `furniture-<hash>` with the file name in its markings. `Probe` lists the
 mesh and template names it saw, which is where to find the word for a
 rule of your own. Words such as
-`lamp`, `pillow`, `table` and `shelf` are skipped so a bedside lamp is
+`lamp`, `pillow`, `duvet`, `table` and `shelf` are skipped so a bedside lamp is
 not a bed. `Furniture(match, activity, workspot)` adds a rule and
 `Furniture()` prints the rules in force; `Rescan` applies them. A
 furniture spot that sits the NPC wrong can be excluded by its key and

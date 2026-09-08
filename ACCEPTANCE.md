@@ -293,3 +293,18 @@ frames), loot tokens and quest gifts. The couch and bed are among the
 nodes. 0.0.14 matches mesh file names as well and lists them in the
 probe. The probe also found the sixth corridor spot again and one
 non-player device workspot (`ToggleZoomInteraction` with an empty path).
+
+2026-09-08, 0.0.14. Step 5: `passed=96 failed=0`. Step 12 on the
+apartment floor: `probe discovery furniture: 13 spots from entity
+templates`, and the listing names both sofas (`neokitsch_sofa_a.mesh`,
+`neokitsch_sofa_b.mesh`), the double bed (`neokitsch_double_bed_b.mesh`),
+a mattress, the bar stool (`yacht_bar_stool_a.mesh`), two office chairs
+and a `rich_asian_chair_d.mesh`, each with a vanilla workspot and the
+node's own yaw. Two defects: every key was `furniture-0`, because static
+mesh nodes carry no global node id, so exclude and retag could not name
+them and every rule picked its first workspot; and four `duvet` meshes on
+the bed became sleep spots at the bed's own position. 0.0.15 keys a
+mesh spot by a hash of its position at 0.1 m, skips `duvet`, and drops a
+furniture spot within 0.5 m of one already made. Whether the vanilla
+workspot seats an NPC correctly on the mesh's origin is not yet seen in
+game.

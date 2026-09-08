@@ -490,18 +490,35 @@ public class SpotDiscovery extends IScriptable {
     if !IsDefined(rules) { return; };
     let rule: ref<FurnitureRule> = rules.Match(path);
     if !IsDefined(rule) { return; };
+    // Static meshes carry no global node id, so the key comes from the
+    // position instead; two pieces at the same spot (a bed and the
+    // mattress on it) make one spot.
+    let hash: Uint64 = gid.hash != Cast<Uint64>(0) ? gid.hash : SpotDiscovery.PositionHash(pos);
+    let other: ref<Spot>;
+    for other in this.m_furnitureSpots {
+      if Vector4.Distance(other.position, pos) < 0.5 { return; };
+    };
     let s: ref<Spot> = new Spot();
     s.nodeRef = setup.GetNodeRef();
-    s.nodeKey = "furniture-" + ToString(gid.hash);
+    s.nodeKey = "furniture-" + ToString(hash);
     s.position = pos;
     let e: EulerAngles = Quaternion.ToEulerAngles(q);
     s.yaw = e.Yaw;
-    s.workspotPath = FurnitureRules.Pick(rule, gid.hash);
+    s.workspotPath = FurnitureRules.Pick(rule, hash);
     s.activity = rule.activity;
     s.source = SpotSource.Manual;
     s.isInfinite = true;
     ArrayPush(s.markings, StringToName(FurnitureRules.FileName(path)));
     ArrayPush(this.m_furnitureSpots, s);
+  }
+
+  // A stable non-zero hash of a position at 0.1 m, for nodes without an id.
+  public static func PositionHash(pos: Vector4) -> Uint64 {
+    let x: Int64 = Cast<Int64>(RoundF(pos.X * 10.0)) + Cast<Int64>(4000000);
+    let y: Int64 = Cast<Int64>(RoundF(pos.Y * 10.0)) + Cast<Int64>(4000000);
+    let z: Int64 = Cast<Int64>(RoundF(pos.Z * 10.0)) + Cast<Int64>(4000000);
+    let h: Uint64 = Cast<Uint64>(x) * Cast<Uint64>(73856093) + Cast<Uint64>(y) * Cast<Uint64>(19349663) + Cast<Uint64>(z) * Cast<Uint64>(83492791);
+    return h == Cast<Uint64>(0) ? Cast<Uint64>(1) : h;
   }
 
   private func ReadSector(sector: ref<worldStreamingSector>) -> Void {

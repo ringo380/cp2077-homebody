@@ -31,6 +31,7 @@ public class FurnitureRules extends IScriptable {
     // furniture itself: a bedside lamp, a couch pillow, a proxy mesh.
     this.AddSkip("lamp");
     this.AddSkip("pillow");
+    this.AddSkip("duvet");
     this.AddSkip("blanket");
     this.AddSkip("sheet");
     this.AddSkip("curtain");

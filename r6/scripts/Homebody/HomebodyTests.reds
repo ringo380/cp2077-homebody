@@ -220,6 +220,12 @@ public func HomebodyFurnitureTests(t: ref<HomebodyTest>) -> Void {
   t.AssertTrue(!IsDefined(f.Match("base\\bedroom\\poster_a.ent")), "furn/folder-not-matched");
   t.AssertTrue(!IsDefined(f.Match("base\\x\\couch_pillow_a.ent")), "furn/pillow-skipped");
   t.AssertTrue(!IsDefined(f.Match("base\\x\\coffee_table_a.ent")), "furn/table-skipped");
+  t.AssertTrue(!IsDefined(f.Match("base\\x\\rich_mattress_a_duvet_b.mesh")), "furn/duvet-skipped");
+  let p1: Vector4 = new Vector4(-1614.2, 358.8, 49.0, 1.0);
+  let p2: Vector4 = new Vector4(-1614.2, 358.9, 49.0, 1.0);
+  t.AssertTrue(SpotDiscovery.PositionHash(p1) != Cast<Uint64>(0), "furn/poshash-nonzero");
+  t.AssertTrue(SpotDiscovery.PositionHash(p1) == SpotDiscovery.PositionHash(new Vector4(-1614.2, 358.8, 49.0, 1.0)), "furn/poshash-stable");
+  t.AssertTrue(SpotDiscovery.PositionHash(p1) != SpotDiscovery.PositionHash(p2), "furn/poshash-distinct");
   let mesh: ref<FurnitureRule> = f.Match("base\\environment\\decoration\\furniture\\sofa_b.mesh");
   t.AssertTrue(IsDefined(mesh), "furn/mesh-matches");
   if IsDefined(mesh) { t.AssertEqS(mesh.activity, "sit", "furn/mesh-sofa-sit"); };
