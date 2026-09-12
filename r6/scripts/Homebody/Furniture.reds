@@ -66,11 +66,11 @@ public class FurnitureRules extends IScriptable {
     this.AddRule("chair", "sit", "base\\workspots\\common\\chair\\generic__sit_chair__sit_around__02.workspot");
     this.AddRule("chair", "sit", "base\\workspots\\common\\chair\\generic__sit_chair_tablet__read__01.workspot");
     this.AddRule("stool", "sit", "base\\workspots\\common\\chair\\generic__sit_chair__sit_around__04.workspot");
-    this.AddRule("mattress", "sleep", "base\\workspots\\common\\bed\\generic__lie_bed_lean_left__lie_around__01.workspot");
     this.AddRule("bed", "sleep", "base\\workspots\\common\\bed\\generic__lie_double_bed__sleep__01.workspot");
     this.AddRule("bed", "sleep", "base\\workspots\\common\\bed\\generic__lie_double_bed__sleep__02.workspot");
     this.AddRule("bed", "sleep", "base\\workspots\\common\\bed\\generic__lie_double_bed__sleep__03.workspot");
     this.AddRule("bed", "sleep", "base\\workspots\\common\\bed\\generic__lie_double_bed__lie_around__01.workspot");
+    this.AddRule("mattress", "sleep", "base\\workspots\\common\\bed\\generic__lie_bed_lean_left__lie_around__01.workspot");
     this.AddRule("sink", "wash", "base\\workspots\\common\\high_sink\\generic__stand_high_sink___wash_hands__01.workspot");
   }
 
@@ -109,6 +109,17 @@ public class FurnitureRules extends IScriptable {
       if StrContains(name, r.match) { return r; };
     };
     return null;
+  }
+
+  // The rule's place in the list; a lower rank wins when two pieces of
+  // furniture share a position.
+  public func Rank(rule: ref<FurnitureRule>) -> Int32 {
+    let i: Int32 = 0;
+    while i < ArraySize(this.m_rules) {
+      if Equals(this.m_rules[i], rule) { return i; };
+      i += 1;
+    };
+    return 1000;
   }
 
   // One of the rule's workspots, chosen by a hash so it is stable per

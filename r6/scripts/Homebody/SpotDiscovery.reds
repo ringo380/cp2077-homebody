@@ -57,6 +57,7 @@ public class SpotDiscovery extends IScriptable {
   // entities (2026-09-08 census), so the mesh names are what a furniture
   // rule has to match.
   private let m_furnitureSpots: array<ref<Spot>>;
+  private let m_furnitureRank: array<Int32>;
   private let m_meshes: array<String>;
   private let m_meshCounts: array<Int32>;
 
@@ -91,6 +92,7 @@ public class SpotDiscovery extends IScriptable {
     ArrayClear(this.m_templateCounts);
     this.m_playerWorkspots = 0;
     ArrayClear(this.m_furnitureSpots);
+    ArrayClear(this.m_furnitureRank);
     ArrayClear(this.m_meshes);
     ArrayClear(this.m_meshCounts);
     this.m_nodesSeen = 0;
@@ -492,11 +494,17 @@ public class SpotDiscovery extends IScriptable {
     if !IsDefined(rule) { return; };
     // Static meshes carry no global node id, so the key comes from the
     // position instead; two pieces at the same spot (a bed and the
-    // mattress on it) make one spot.
+    // mattress on it) make one spot, and the rule listed first wins.
     let hash: Uint64 = gid.hash != Cast<Uint64>(0) ? gid.hash : SpotDiscovery.PositionHash(pos);
-    let other: ref<Spot>;
-    for other in this.m_furnitureSpots {
-      if Vector4.Distance(other.position, pos) < 0.5 { return; };
+    let rank: Int32 = rules.Rank(rule);
+    let slot: Int32 = -1;
+    let i: Int32 = 0;
+    while i < ArraySize(this.m_furnitureSpots) {
+      if Vector4.Distance(this.m_furnitureSpots[i].position, pos) < 0.5 {
+        if rank >= this.m_furnitureRank[i] { return; };
+        slot = i;
+      };
+      i += 1;
     };
     let s: ref<Spot> = new Spot();
     s.nodeRef = setup.GetNodeRef();
@@ -509,7 +517,13 @@ public class SpotDiscovery extends IScriptable {
     s.source = SpotSource.Manual;
     s.isInfinite = true;
     ArrayPush(s.markings, StringToName(FurnitureRules.FileName(path)));
-    ArrayPush(this.m_furnitureSpots, s);
+    if slot >= 0 {
+      this.m_furnitureSpots[slot] = s;
+      this.m_furnitureRank[slot] = rank;
+    } else {
+      ArrayPush(this.m_furnitureSpots, s);
+      ArrayPush(this.m_furnitureRank, rank);
+    };
   }
 
   // A stable non-zero hash of a position at 0.1 m, for nodes without an id.

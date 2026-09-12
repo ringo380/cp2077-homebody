@@ -308,3 +308,19 @@ mesh spot by a hash of its position at 0.1 m, skips `duvet`, and drops a
 furniture spot within 0.5 m of one already made. Whether the vanilla
 workspot seats an NPC correctly on the mesh's origin is not yet seen in
 game.
+
+2026-09-12, 0.0.15. Step 5: `passed=97 failed=0`. Step 12: the probe
+lists 10 furniture spots with distinct `furniture-<hash>` keys; the
+duvets are gone and the bed and the mattress on it made one spot. Three
+bathroom sinks matched `sink` as `wash` spots, outside the apartment
+box. The apartment home (attach-only, box over the flat) then ran the
+whole loop on mesh furniture: `apartment discovery done: 0 spots in 346
+sectors`, `apartment discovery furniture: 7 spots from entity
+templates`, `occupancy: 29 puppets nearby, 22 in workspots, 1 spots
+taken; furniture-705723036121011 has one 0.28 m away`, `manual walk to
+sit furniture-705720953980171` (the sofa facing the TV), `manual play
+base\workspots\common\couch\generic__sit_couch_tv__watch__01.workspot`,
+`was out of furniture-705720953980171 after 43 s (manual)`, then
+`wanders 4.5 m`. One correction for 0.1.0: the merged bed spot kept the
+mattress rule's workspot because the mattress node came first; a rule's
+rank now decides, with the bed rules ahead of the mattress rule.
