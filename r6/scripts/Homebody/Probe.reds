@@ -88,10 +88,13 @@ public class HomebodyProbe extends IScriptable {
     if !IsDefined(sys) || !sys.IsReady() { return "dynamic entity system not ready"; };
     let player: ref<PlayerPuppet> = GetPlayer(GetGameInstance());
     if !IsDefined(player) { return "no player"; };
+    // In front of the player, not at a fixed diagonal: that put her
+    // inside the back of a couch once.
     let at: Vector4 = player.GetWorldPosition();
+    let fwd: Vector4 = player.GetWorldForward();
     let spec: ref<DynamicEntitySpec> = new DynamicEntitySpec();
     spec.recordID = TDBID.Create(record);
-    spec.position = new Vector4(at.X + 1.5, at.Y + 1.5, at.Z, 1.0);
+    spec.position = new Vector4(at.X + fwd.X * 1.5, at.Y + fwd.Y * 1.5, at.Z, 1.0);
     spec.orientation = player.GetWorldOrientation();
     spec.persistState = false;
     spec.persistSpawn = false;
