@@ -334,3 +334,13 @@ puts a furniture spot's device at the z the NPC stands on when she
 arrives (`device for furniture-... raised 0.6 m to the floor`) and logs
 a `seat check` line 3 s into every manual play with her position, her
 distance from the spot and her state.
+
+2026-09-12, 0.0.16. The floor snap read a z of about 9e11 m off the
+puppet position (`raised 912279994368 m to the floor`), so the device
+spawned nowhere and every manual sit ended `device entity did not spawn
+in 10 s`. The value came from reading `.Z` straight off the struct a
+method returned; 0.0.17 binds the position to a local first and ignores
+a snap over 2 m. Also in this run, on the example home: `left spot
+7185338493199956015 on its own after 31 s ... 73 s remain`, `native use
+sit ... (sitting back down 1)`, `in spot ... after 6.1 s (sat back down
+1)`, so the native re-send works.

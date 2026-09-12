@@ -292,7 +292,10 @@ public class Driver extends IScriptable {
       let arrived: Bool = dist <= 0.9 || Equals(st, AICommandState.Success);
       if arrived {
         this.EndCommands(ai);
-        return this.SpawnDevice(now, puppet.GetWorldPosition().Z);
+        // Bind the position first: a field read off the returned struct
+        // gave a z of 9e11 in the 0.0.16 run.
+        let standing: Vector4 = puppet.GetWorldPosition();
+        return this.SpawnDevice(now, standing.Z);
       };
       if Equals(st, AICommandState.Failure) || elapsed > this.m_cfg.moveTimeoutSeconds {
         if this.m_cfg.allowOffNavmeshHops && !this.m_hopTried && dist <= 6.0 {
@@ -393,8 +396,9 @@ public class Driver extends IScriptable {
     let spec: ref<DynamicEntitySpec> = new DynamicEntitySpec();
     spec.templatePath = ResRef.FromString(this.m_cfg.deviceEntity);
     spec.position = d.spot.position;
-    if StrBeginsWith(d.spot.nodeKey, "furniture-") && AbsF(floorZ - d.spot.position.Z) > 0.1 {
-      HomebodyLog.Info(this.m_label + " device for " + d.spot.nodeKey + " raised " + FloatToStringPrec(floorZ - d.spot.position.Z, 2) + " m to the floor");
+    let dz: Float = floorZ - d.spot.position.Z;
+    if StrBeginsWith(d.spot.nodeKey, "furniture-") && AbsF(dz) > 0.1 && AbsF(dz) < 2.0 {
+      HomebodyLog.Info(this.m_label + " device for " + d.spot.nodeKey + " raised " + FloatToStringPrec(dz, 2) + " m to the floor");
       spec.position.Z = floorZ;
     };
     let e: EulerAngles;
