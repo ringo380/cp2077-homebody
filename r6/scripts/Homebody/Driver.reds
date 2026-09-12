@@ -164,7 +164,9 @@ public class Driver extends IScriptable {
     };
     this.SendMove(ai, this.m_decision.spot.position, 0.4, false);
     this.Enter(4, now);
-    HomebodyLog.Info(this.m_label + " manual walk to " + this.m_decision.spot.activity + " " + this.m_decision.spot.nodeKey);
+    let from: Vector4 = puppet.GetWorldPosition();
+    HomebodyLog.Info(this.m_label + " manual walk to " + this.m_decision.spot.activity + " " + this.m_decision.spot.nodeKey
+      + " from (" + FloatToStringPrec(from.X, 1) + ", " + FloatToStringPrec(from.Y, 1) + ", " + FloatToStringPrec(from.Z, 1) + ")");
     return true;
   }
 
