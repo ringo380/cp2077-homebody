@@ -324,3 +324,13 @@ base\workspots\common\couch\generic__sit_couch_tv__watch__01.workspot`,
 `wanders 4.5 m`. One correction for 0.1.0: the merged bed spot kept the
 mattress rule's workspot because the mattress node came first; a rule's
 rank now decides, with the bed rules ahead of the mattress rule.
+Seen from the player, though, the probe NPC vanished shortly after she
+spawned, and every manual play ended with `was out of ... after 31 to
+63 s (manual)`, so the engine had her in a workspot she then left on
+her own, as the native path's finite workspots do. The sofa spots sit at
+z 48.6 while the chairs and the floor are at 49.2 to 49.4: a mesh pivot
+can be well under the floor, and the device was spawned there. 0.0.16
+puts a furniture spot's device at the z the NPC stands on when she
+arrives (`device for furniture-... raised 0.6 m to the floor`) and logs
+a `seat check` line 3 s into every manual play with her position, her
+distance from the spot and her state.

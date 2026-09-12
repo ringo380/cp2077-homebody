@@ -29,6 +29,7 @@ public class Driver extends IScriptable {
   private let m_deviceId: EntityID;
   private let m_manualRetry: Bool;
   private let m_hopTried: Bool;
+  private let m_seatLogged: Bool;
   private let m_resends: Int32;
   private let m_spotSince: Float;
 
@@ -89,6 +90,7 @@ public class Driver extends IScriptable {
   private func Enter(stage: Int32, now: Float) -> Void {
     this.m_stage = stage;
     this.m_stageAt = now;
+    this.m_seatLogged = false;
   }
 
   public func Start(d: ref<Decision>, puppet: ref<ScriptedPuppet>, now: Float) -> Bool {
@@ -290,7 +292,7 @@ public class Driver extends IScriptable {
       let arrived: Bool = dist <= 0.9 || Equals(st, AICommandState.Success);
       if arrived {
         this.EndCommands(ai);
-        return this.SpawnDevice(now);
+        return this.SpawnDevice(now, puppet.GetWorldPosition().Z);
       };
       if Equals(st, AICommandState.Failure) || elapsed > this.m_cfg.moveTimeoutSeconds {
         if this.m_cfg.allowOffNavmeshHops && !this.m_hopTried && dist <= 6.0 {
@@ -346,6 +348,16 @@ public class Driver extends IScriptable {
       return this.Result(DriverOutcome.Running, "");
     };
     if this.m_stage == 6 {
+      // Where the play put her, once, a few seconds in: a furniture spot
+      // sits at the mesh pivot, which may be inside the mesh.
+      if !this.m_seatLogged && elapsed >= 3.0 {
+        this.m_seatLogged = true;
+        let at: Vector4 = puppet.GetWorldPosition();
+        HomebodyLog.Info(this.m_label + " seat check " + d.spot.nodeKey + ": in workspot " + (inSpot ? "yes" : "no")
+          + ", at (" + FloatToStringPrec(at.X, 1) + ", " + FloatToStringPrec(at.Y, 1) + ", " + FloatToStringPrec(at.Z, 1) + "), "
+          + FloatToStringPrec(Vector4.Distance(at, d.spot.position), 2) + " m from the spot (dz " + FloatToStringPrec(at.Z - d.spot.position.Z, 2) + "), "
+          + Driver.NpcState(puppet));
+      };
       if elapsed >= d.duration || (!inSpot && elapsed > 3.0) {
         if inSpot { wss.StopInDevice(puppet); };
         HomebodyLog.Info(this.m_label + (inSpot ? " leaves " : " was out of ") + d.spot.nodeKey + " after " + FloatToStringPrec(elapsed, 0) + " s (manual)");
@@ -368,7 +380,10 @@ public class Driver extends IScriptable {
     return this.Result(DriverOutcome.Done, "unknown stage");
   }
 
-  private func SpawnDevice(now: Float) -> ref<DriverResult> {
+  // floorZ is where the NPC stands on arrival. A furniture spot sits at
+  // its mesh pivot, which can be well under the floor (the example
+  // apartment's sofas are 0.6 m down), so the device takes the floor.
+  private func SpawnDevice(now: Float, floorZ: Float) -> ref<DriverResult> {
     let sys: ref<DynamicEntitySystem> = GameInstance.GetDynamicEntitySystem();
     if !IsDefined(sys) {
       this.m_stage = 0;
@@ -378,6 +393,10 @@ public class Driver extends IScriptable {
     let spec: ref<DynamicEntitySpec> = new DynamicEntitySpec();
     spec.templatePath = ResRef.FromString(this.m_cfg.deviceEntity);
     spec.position = d.spot.position;
+    if StrBeginsWith(d.spot.nodeKey, "furniture-") && AbsF(floorZ - d.spot.position.Z) > 0.1 {
+      HomebodyLog.Info(this.m_label + " device for " + d.spot.nodeKey + " raised " + FloatToStringPrec(floorZ - d.spot.position.Z, 2) + " m to the floor");
+      spec.position.Z = floorZ;
+    };
     let e: EulerAngles;
     e.Yaw = d.spot.yaw;
     spec.orientation = EulerAngles.ToQuat(e);
