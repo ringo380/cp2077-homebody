@@ -32,6 +32,9 @@ public class SpotDiscovery extends IScriptable {
   private let m_sectorInfo: array<String>;
   private let m_nodesSeen: Int32;
   private let m_label: String;
+  // The census lines run to thousands of characters; the probe always
+  // prints them, a home only with debug logging on.
+  public let verbose: Bool;
   // Census of every node class inside the boundary, and of the entity and
   // device nodes among them: how many resolve to a live entity by each of
   // two routes, and how many of those carry a workspot component. This is
@@ -327,10 +330,12 @@ public class SpotDiscovery extends IScriptable {
     if this.m_nextSector >= ArraySize(this.m_sectorTokens) {
       HomebodyLog.Info(this.m_label + " discovery done: " + IntToString(ArraySize(this.m_spots)) + " spots in "
         + IntToString(this.m_sectorsRead) + " sectors, " + IntToString(this.m_nodesSeen) + " nodes seen");
-      HomebodyLog.Info(this.m_label + " discovery census inside the boundary: " + this.Census());
-      HomebodyLog.Info(this.m_label + " discovery entities: " + this.Entities());
-      HomebodyLog.Info(this.m_label + " discovery entity templates inside the boundary: " + this.Templates());
-      HomebodyLog.Info(this.m_label + " discovery meshes inside the boundary: " + SpotDiscovery.CountsText(this.m_meshes, this.m_meshCounts));
+      if this.verbose {
+        HomebodyLog.Info(this.m_label + " discovery census inside the boundary: " + this.Census());
+        HomebodyLog.Info(this.m_label + " discovery entities: " + this.Entities());
+        HomebodyLog.Info(this.m_label + " discovery entity templates inside the boundary: " + this.Templates());
+        HomebodyLog.Info(this.m_label + " discovery meshes inside the boundary: " + SpotDiscovery.CountsText(this.m_meshes, this.m_meshCounts));
+      };
       let ds: ref<Spot>;
       for ds in this.m_deviceSpots {
         HomebodyLog.Info(this.m_label + " device spot " + SpotDiscovery.Describe(ds) + " component " + NameToString(ds.componentName));

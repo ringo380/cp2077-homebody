@@ -200,6 +200,7 @@ public class HomebodySystem extends ScriptableSystem {
       i += 1;
     };
     let d: ref<SpotDiscovery> = new SpotDiscovery();
+    d.verbose = this.m_registry.GetConfig().debug;
     d.Start(home.bounds, home.id);
     ArrayPush(this.m_discoveries, d);
     ArrayPush(this.m_discoveryHomes, home.id);

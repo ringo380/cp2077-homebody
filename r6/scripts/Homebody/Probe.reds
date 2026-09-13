@@ -12,6 +12,7 @@ public class HomebodyProbe extends IScriptable {
     if !IsDefined(player) { return "no player"; };
     let at: Vector4 = player.GetWorldPosition();
     this.m_discovery = new SpotDiscovery();
+    this.m_discovery.verbose = true;
     this.m_reported = false;
     this.m_discovery.Start(Bounds.Sphere(at, radius), "probe");
     return "probing " + FloatToStringPrec(radius, 1) + " m around (" + FloatToStringPrec(at.X, 1) + ", "
