@@ -1,5 +1,12 @@
 # Homebody acceptance
 
+Outcome for 0.1.0 (2026-09-13): steps 1 to 12 pass on 0.0.13 to 0.0.18
+as recorded under Findings. Proven in game: discovery, the native sit,
+the occupancy check, the refusal-as-occupied rule, the sit-back-down
+re-send, the manual path, furniture spots from meshes, and a chair sit
+on a furniture spot. Not yet seen in game: the sofa seat offset of
+0.0.18 (a default, tunable with the bridge's `Furniture` call).
+
 Run these in order after importing the staged zip through Vortex and
 launching the game. Each step names the log line that proves it. Homebody's
 own lines go to CET's game log,

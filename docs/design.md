@@ -403,8 +403,8 @@ and imported through Vortex.
 
 ## Deviations and findings
 
-Recorded while building 0.0.1 to 0.0.13 on 2026-09-05 and 2026-09-06; the
-log lines behind each are in `ACCEPTANCE.md`.
+Recorded while building 0.0.1 to 0.0.18 between 2026-09-05 and
+2026-09-13; the log lines behind each are in `ACCEPTANCE.md`.
 
 Discovery. The streaming world object the running game hands back lists
 no block refs, and so does the same resource loaded again by path, so
@@ -423,15 +423,26 @@ personal link, computer and camera interactions).
 Furniture. A player apartment's couch, bed and shower carry no NPC
 workspot at all, and the apartment floor has no `worldAISpotNode`; the
 game's own AI spots for that building are in the corridor. So
-`Furniture.reds` (not in the approved design) matches a word in each
-entity template's file name to an activity and a set of vanilla workspots
-from the common library, and makes a manual spot at the entity. The
-device path the design's "Task 8b" census was meant to clear was dropped.
+`Furniture.reds` (not in the approved design) matches a word in the
+file name of each entity template and each static or destructible mesh
+inside the boundary to an activity and a set of vanilla workspots from
+the common library, and makes a manual spot at the node. A player
+apartment's sofas and beds are meshes, not entities. Mesh nodes carry no
+global node id, so a furniture spot is keyed by a hash of its position
+at 0.1 m; two pieces within 0.5 m make one spot and the rule listed
+first wins, so a bed beats the mattress on it. A rule carries a seat
+offset, since a chair's pivot is its seat but a sofa's is its centre and
+under the floor: the seat is placed forward of the pivot along the
+node's facing (sofas 0.45 m) and at the height of the floor the NPC
+walked in on. The chair sit is proven in game; the sofa offset is a
+default the user tunes with the bridge's `Furniture` call. The device
+path the design's "Task 8b" census was meant to clear was dropped.
 
 Spot record. The node key is the decimal string of the global node id
 hash (a Uint64 does not survive JSON). Added fields: `nativeFailures`,
-`busyUntil`, and for device spots `deviceId` and `componentName`.
-Furniture spots carry the template file name as a marking.
+`busyUntil`, `seatUp`, and for device spots `deviceId` and
+`componentName`. Furniture spots carry the mesh or template file name as
+a marking.
 
 Native path. Proven: the engine walks the NPC to the spot and seats her
 in 2 to 13 s. Two engine behaviours changed the driver. A use-workspot
@@ -442,14 +453,18 @@ again. It does not fall back to the manual path there, because that
 seated her on top of the occupant. And the engine ends these finite
 workspots after 30 to 40 s with the command in Success, so the driver
 sends the same command again while more than 15 s of the scheduled
-duration remain, three times at most. The manual path (entSpawner's
-device, `PlayInDeviceSimple`) is proven and its animation is visible.
+duration remain, three times at most; the re-send is proven (she sat
+back down 6 s after leaving). The manual path (entSpawner's device,
+`PlayInDeviceSimple`) is proven and its animation is visible. Its move
+command can report success a second after it is sent, metres from the
+spot, and the play then slides the NPC onto the device; the driver sends
+the move once more before accepting that.
 
 Occupancy. There is no reservation query for world spots. The check
 looks for other puppets in a workspot within a metre of a spot, using a
 targeting query. Run from the roaming NPC that query returned no puppets
-at all; it now runs from the player. Whether it returns crowd residents
-is not yet proven.
+at all; it now runs from the player and does see the corridor's
+residents (26 puppets, 19 in workspots, the held chairs flagged).
 
 Scheduler. Manual and furniture spots weigh nothing when the manual path
 is unavailable; a busy spot weighs nothing until its time passes.
