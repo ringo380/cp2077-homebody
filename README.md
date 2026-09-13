@@ -98,7 +98,8 @@ per game session.
 
 Activities the classifier produces: `sit`, `lean`, `stand`, `smoke`,
 `cook`, `drink`, `tv`, `radio`, `dance`, `phone`, `sleep`, `toilet`,
-`shower`, and `idle` for anything it cannot name. Add your own rule with
+`shower`, `wash` (from furniture sinks), and `idle` for anything it
+cannot name. Add your own rule with
 `Rule` below when the log shows a spot as idle.
 
 `config.json` holds timeouts, the spawn ranges, the debug flag and the

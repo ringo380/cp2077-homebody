@@ -105,7 +105,7 @@ scripts compiled.
     `GetMod("HomebodyBridge").Probe(15)`. Expect `furniture spot
     furniture-<hash> at (...) sleep ... [bed_...] base\workspots\common\bed\...`
     lines for the bed and couch in the console listing, and `discovery
-    furniture: N spots from entity templates` in the log. With a home whose
+    furniture: N furniture spots from templates and meshes` in the log. With a home whose
     bounds cover the apartment floor, expect `manual walk to sit
     furniture-...` and the NPC sitting on the couch.
 

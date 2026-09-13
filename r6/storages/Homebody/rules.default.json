@@ -1,13 +1,13 @@
 {
   "phases": [
-    { "from": 6,  "to": 10, "weights": { "cook": 3, "drink": 2, "sit": 1, "phone": 1, "wander": 1 } },
+    { "from": 6,  "to": 10, "weights": { "cook": 3, "drink": 2, "wash": 1, "sit": 1, "phone": 1, "wander": 1 } },
     { "from": 10, "to": 18, "weights": { "sit": 2, "tv": 2, "lean": 1, "phone": 1, "wander": 1 } },
-    { "from": 18, "to": 23, "weights": { "dance": 1, "smoke": 1, "sit": 2, "drink": 1, "tv": 1 } },
+    { "from": 18, "to": 23, "weights": { "dance": 1, "smoke": 1, "sit": 2, "drink": 1, "tv": 1, "wash": 1 } },
     { "from": 23, "to": 6,  "weights": { "sleep": 5, "toilet": 1, "idle": 1 } }
   ],
   "duration": {
     "sit": [40, 120], "smoke": [30, 60], "cook": [40, 90], "tv": [60, 180],
-    "sleep": [120, 400], "toilet": [20, 40], "shower": [40, 80], "default": [20, 60]
+    "sleep": [120, 400], "toilet": [20, 40], "shower": [40, 80], "wash": [15, 30], "default": [20, 60]
   },
   "cooldownSeconds": 90,
   "wanderRadius": 4.0

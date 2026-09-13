@@ -335,7 +335,7 @@ public class SpotDiscovery extends IScriptable {
       for ds in this.m_deviceSpots {
         HomebodyLog.Info(this.m_label + " device spot " + SpotDiscovery.Describe(ds) + " component " + NameToString(ds.componentName));
       };
-      HomebodyLog.Info(this.m_label + " discovery furniture: " + IntToString(ArraySize(this.m_furnitureSpots)) + " spots from entity templates");
+      HomebodyLog.Info(this.m_label + " discovery furniture: " + IntToString(ArraySize(this.m_furnitureSpots)) + " furniture spots from templates and meshes");
       for ds in this.m_furnitureSpots {
         HomebodyLog.Info(this.m_label + " furniture spot " + SpotDiscovery.Describe(ds));
       };

@@ -373,7 +373,7 @@ public class Driver extends IScriptable {
     if this.m_stage == 6 {
       // Where the play put her, once, a few seconds in: a furniture spot
       // sits at the mesh pivot, which may be inside the mesh.
-      if !this.m_seatLogged && elapsed >= 3.0 {
+      if this.m_cfg.debug && !this.m_seatLogged && elapsed >= 3.0 {
         this.m_seatLogged = true;
         let at: Vector4 = puppet.GetWorldPosition();
         HomebodyLog.Info(this.m_label + " seat check " + d.spot.nodeKey + ": in workspot " + (inSpot ? "yes" : "no")
