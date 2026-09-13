@@ -509,9 +509,10 @@ public class SpotDiscovery extends IScriptable {
     let s: ref<Spot> = new Spot();
     s.nodeRef = setup.GetNodeRef();
     s.nodeKey = "furniture-" + ToString(hash);
-    s.position = pos;
     let e: EulerAngles = Quaternion.ToEulerAngles(q);
     s.yaw = e.Yaw;
+    s.position = SpotDiscovery.Forward(pos, e.Yaw, rule.forward);
+    s.seatUp = rule.up;
     s.workspotPath = FurnitureRules.Pick(rule, hash);
     s.activity = rule.activity;
     s.source = SpotSource.Manual;
@@ -524,6 +525,13 @@ public class SpotDiscovery extends IScriptable {
       ArrayPush(this.m_furnitureSpots, s);
       ArrayPush(this.m_furnitureRank, rank);
     };
+  }
+
+  // pos moved by metres along the facing yaw (degrees; +Y at zero).
+  public static func Forward(pos: Vector4, yaw: Float, metres: Float) -> Vector4 {
+    if metres == 0.0 { return pos; };
+    let r: Float = Deg2Rad(yaw);
+    return new Vector4(pos.X - SinF(r) * metres, pos.Y + CosF(r) * metres, pos.Z, 1.0);
   }
 
   // A stable non-zero hash of a position at 0.1 m, for nodes without an id.

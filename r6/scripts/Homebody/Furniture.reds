@@ -18,6 +18,12 @@ public class FurnitureRule extends IScriptable {
   public let match: String;
   public let activity: String;
   public let workspots: array<String>;
+  // Where the seat is relative to the mesh pivot: forward along the
+  // node's facing, and up from the floor the NPC walked in on. A chair's
+  // pivot is its seat; a sofa's is its centre, 0.6 m down and half a
+  // cushion back (2026-09-13 run).
+  public let forward: Float;
+  public let up: Float;
 }
 
 public class FurnitureRules extends IScriptable {
@@ -72,6 +78,22 @@ public class FurnitureRules extends IScriptable {
     this.AddRule("bed", "sleep", "base\\workspots\\common\\bed\\generic__lie_double_bed__lie_around__01.workspot");
     this.AddRule("mattress", "sleep", "base\\workspots\\common\\bed\\generic__lie_bed_lean_left__lie_around__01.workspot");
     this.AddRule("sink", "wash", "base\\workspots\\common\\high_sink\\generic__stand_high_sink___wash_hands__01.workspot");
+    this.SetOffset("couch", "sit", 0.45, 0.0);
+    this.SetOffset("sofa", "sit", 0.45, 0.0);
+  }
+
+  // Sets the seat offset of the rule for match and activity, if any.
+  public func SetOffset(match: String, activity: String, forward: Float, up: Float) -> Bool {
+    let m: String = StrLower(match);
+    let r: ref<FurnitureRule>;
+    for r in this.m_rules {
+      if Equals(r.match, m) && Equals(r.activity, activity) {
+        r.forward = forward;
+        r.up = up;
+        return true;
+      };
+    };
+    return false;
   }
 
   public func AddSkip(word: String) -> Void {
@@ -143,6 +165,9 @@ public class FurnitureRules extends IScriptable {
     let r: ref<FurnitureRule>;
     for r in this.m_rules {
       out += (Equals(out, "") ? "" : ", ") + r.match + " -> " + r.activity + " (" + IntToString(ArraySize(r.workspots)) + ")";
+      if r.forward != 0.0 || r.up != 0.0 {
+        out += " offset " + FloatToStringPrec(r.forward, 2) + "/" + FloatToStringPrec(r.up, 2);
+      };
     };
     return out;
   }

@@ -117,9 +117,14 @@ function Homebody.Rescan(homeId) local sys = system(); return sys ~= nil and sys
 -- Furniture(match, activity, workspot) adds a furniture rule: a word in an
 -- entity template's file name, the activity, and a vanilla workspot path.
 -- Furniture() alone prints the rules in force.
-function Homebody.Furniture(match, activity, workspot)
+function Homebody.Furniture(match, activity, workspot, forward, up)
     local sys = system(); if not sys then say("system not available"); return end
-    if match and activity and workspot then sys:AddFurnitureRule(match, activity, workspot) end
+    if match and activity and workspot and workspot ~= "" then sys:AddFurnitureRule(match, activity, workspot) end
+    if match and activity and (forward or up) then
+        if not sys:SetFurnitureOffset(match, activity, tonumber(forward) or 0, tonumber(up) or 0) then
+            say("no rule " .. tostring(match) .. " -> " .. tostring(activity))
+        end
+    end
     say("furniture rules: " .. tostring(sys:FurnitureRulesText()))
 end
 

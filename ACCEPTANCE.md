@@ -344,3 +344,17 @@ a snap over 2 m. Also in this run, on the example home: `left spot
 7185338493199956015 on its own after 31 s ... 73 s remain`, `native use
 sit ... (sitting back down 1)`, `in spot ... after 6.1 s (sat back down
 1)`, so the native re-send works.
+
+2026-09-13, 0.0.17. Step 12 on the apartment home: `manual walk to sit
+furniture-705720953980171 from (-1606.8, 356.2, 49.2)`, `manual play
+... generic__sit_couch_tv__watch__01.workspot` one second later, `seat
+check ...: in workspot yes, at (-1601.4, 356.3, 48.6), 0.52 m from the
+spot (dz 0)`. Seen from the player she was inside the sofa and emerged
+from it when she stood up: a sofa's mesh pivot is its centre, 0.6 m
+below the floor she walked in on. The stash room's office chair worked
+as it stands, since a chair's pivot is its seat. Also, the move command
+reported Success a second after it was sent, from 5 m away, and the
+device play slid her onto the seat. 0.0.18 gives each furniture rule a
+seat offset (forward along the facing, up from the floor; sofas and
+couches 0.45 m forward), takes the floor from where the walk began, and
+sends a move again once when it ends early that far from the spot.

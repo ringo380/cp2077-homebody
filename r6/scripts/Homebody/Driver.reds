@@ -30,6 +30,8 @@ public class Driver extends IScriptable {
   private let m_manualRetry: Bool;
   private let m_hopTried: Bool;
   private let m_seatLogged: Bool;
+  private let m_walkStartZ: Float;
+  private let m_moveResent: Bool;
   private let m_resends: Int32;
   private let m_spotSince: Float;
 
@@ -164,7 +166,9 @@ public class Driver extends IScriptable {
     };
     this.SendMove(ai, this.m_decision.spot.position, 0.4, false);
     this.Enter(4, now);
+    this.m_moveResent = false;
     let from: Vector4 = puppet.GetWorldPosition();
+    this.m_walkStartZ = from.Z;
     HomebodyLog.Info(this.m_label + " manual walk to " + this.m_decision.spot.activity + " " + this.m_decision.spot.nodeKey
       + " from (" + FloatToStringPrec(from.X, 1) + ", " + FloatToStringPrec(from.Y, 1) + ", " + FloatToStringPrec(from.Z, 1) + ")");
     return true;
@@ -291,13 +295,27 @@ public class Driver extends IScriptable {
     if this.m_stage == 4 {
       let dist: Float = Vector4.Distance(puppet.GetWorldPosition(), d.spot.position);
       let st: AICommandState = ai.GetCommandState(this.m_moveCmd);
+      // The move can report Success a second after it was sent, 5 m from
+      // the spot; the play then slides the NPC there. Send it once more
+      // before accepting that.
+      if Equals(st, AICommandState.Success) && dist > 2.0 && !this.m_moveResent {
+        this.m_moveResent = true;
+        this.EndCommands(ai);
+        this.SendMove(ai, d.spot.position, 0.4, false);
+        HomebodyLog.Info(this.m_label + " move ended " + FloatToStringPrec(dist, 1) + " m from " + d.spot.nodeKey + "; sent again");
+        return this.Result(DriverOutcome.Running, "");
+      };
       let arrived: Bool = dist <= 0.9 || Equals(st, AICommandState.Success);
       if arrived {
         this.EndCommands(ai);
         // Bind the position first: a field read off the returned struct
-        // gave a z of 9e11 in the 0.0.16 run.
+        // gave a z of 9e11 in the 0.0.16 run. The floor is where she
+        // stood when the walk began, unless she is clearly on another
+        // level now.
         let standing: Vector4 = puppet.GetWorldPosition();
-        return this.SpawnDevice(now, standing.Z);
+        let floorZ: Float = AbsF(standing.Z - this.m_walkStartZ) < 2.0 ? MaxF(standing.Z, this.m_walkStartZ) : standing.Z;
+        if dist > 2.0 { HomebodyLog.Info(this.m_label + " arrived by command state " + FloatToStringPrec(dist, 1) + " m from " + d.spot.nodeKey); };
+        return this.SpawnDevice(now, floorZ);
       };
       if Equals(st, AICommandState.Failure) || elapsed > this.m_cfg.moveTimeoutSeconds {
         if this.m_cfg.allowOffNavmeshHops && !this.m_hopTried && dist <= 6.0 {
@@ -398,10 +416,10 @@ public class Driver extends IScriptable {
     let spec: ref<DynamicEntitySpec> = new DynamicEntitySpec();
     spec.templatePath = ResRef.FromString(this.m_cfg.deviceEntity);
     spec.position = d.spot.position;
-    let dz: Float = floorZ - d.spot.position.Z;
-    if StrBeginsWith(d.spot.nodeKey, "furniture-") && AbsF(dz) > 0.1 && AbsF(dz) < 2.0 {
+    let dz: Float = floorZ + d.spot.seatUp - d.spot.position.Z;
+    if StrBeginsWith(d.spot.nodeKey, "furniture-") && AbsF(dz) > 0.05 && AbsF(dz) < 2.0 {
       HomebodyLog.Info(this.m_label + " device for " + d.spot.nodeKey + " raised " + FloatToStringPrec(dz, 2) + " m to the floor");
-      spec.position.Z = floorZ;
+      spec.position.Z = floorZ + d.spot.seatUp;
     };
     let e: EulerAngles;
     e.Yaw = d.spot.yaw;

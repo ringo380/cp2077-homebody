@@ -353,6 +353,11 @@ public class HomebodySystem extends ScriptableSystem {
     if IsDefined(rules) { rules.AddRule(match, activity, workspot); };
   }
 
+  public func SetFurnitureOffset(match: String, activity: String, forward: Float, up: Float) -> Bool {
+    let rules: ref<FurnitureRules> = FurnitureRules.Get();
+    return IsDefined(rules) ? rules.SetOffset(match, activity, forward, up) : false;
+  }
+
   public func FurnitureRulesText() -> String {
     let rules: ref<FurnitureRules> = FurnitureRules.Get();
     return IsDefined(rules) ? rules.Describe() : "";

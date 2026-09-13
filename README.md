@@ -129,6 +129,7 @@ hb.Detach(handle)
 hb.Dump("judy_apartment")             -- every spot with its node key, to the log
 hb.Rule("hookah", "smoke")            -- classifier rule, then hb.Rescan(homeId)
 hb.Furniture("stove", "cook", "base\\workspots\\market\\bar\\generic__stand_wok__cook__01.workspot")
+hb.Furniture("couch", "sit", "", 0.6, 0.0)   -- seat offset: forward m, up m
 ```
 
 Console helpers for a look without a consumer mod: `hb.Homes()`,
@@ -149,7 +150,12 @@ mesh and template names it saw, which is where to find the word for a
 rule of your own. Words such as
 `lamp`, `pillow`, `duvet`, `table` and `shelf` are skipped so a bedside lamp is
 not a bed. `Furniture(match, activity, workspot)` adds a rule and
-`Furniture()` prints the rules in force; `Rescan` applies them. A
+`Furniture()` prints the rules in force; `Rescan` applies them. The
+seat is placed forward of the mesh pivot along its facing and at the
+height of the floor the NPC walked in on, by the rule's offsets: a
+chair's pivot is its seat (no offset), a sofa's is its centre (0.45 m
+forward by default). `Furniture(match, activity, "", forward, up)`
+changes a rule's offsets. A
 furniture spot that sits the NPC wrong can be excluded by its key and
 replaced with an `extraSpots` entry, and `furnitureSpots: false` in
 `config.json` turns the whole thing off.

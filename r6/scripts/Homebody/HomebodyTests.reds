@@ -228,6 +228,17 @@ public func HomebodyFurnitureTests(t: ref<HomebodyTest>) -> Void {
   t.AssertTrue(SpotDiscovery.PositionHash(p1) != Cast<Uint64>(0), "furn/poshash-nonzero");
   t.AssertTrue(SpotDiscovery.PositionHash(p1) == SpotDiscovery.PositionHash(new Vector4(-1614.2, 358.8, 49.0, 1.0)), "furn/poshash-stable");
   t.AssertTrue(SpotDiscovery.PositionHash(p1) != SpotDiscovery.PositionHash(p2), "furn/poshash-distinct");
+  let sofa: ref<FurnitureRule> = f.Match("base\\x\\neokitsch_sofa_a.mesh");
+  t.AssertTrue(IsDefined(sofa) && sofa.forward > 0.0, "furn/sofa-forward");
+  let chair: ref<FurnitureRule> = f.Match("base\\x\\corpo_office_chair_b.mesh");
+  t.AssertTrue(IsDefined(chair) && chair.forward == 0.0, "furn/chair-no-offset");
+  t.AssertTrue(f.SetOffset("chair", "sit", 0.2, 0.1), "furn/set-offset");
+  t.AssertTrue(!f.SetOffset("nothing", "sit", 0.2, 0.1), "furn/set-offset-missing");
+  let o: Vector4 = new Vector4(10.0, 20.0, 5.0, 1.0);
+  let f0: Vector4 = SpotDiscovery.Forward(o, 0.0, 1.0);
+  t.AssertTrue(AbsF(f0.X - 10.0) < 0.001 && AbsF(f0.Y - 21.0) < 0.001, "furn/forward-yaw0");
+  let f90: Vector4 = SpotDiscovery.Forward(o, 90.0, 1.0);
+  t.AssertTrue(AbsF(f90.X - 9.0) < 0.001 && AbsF(f90.Y - 20.0) < 0.001, "furn/forward-yaw90");
   let mesh: ref<FurnitureRule> = f.Match("base\\environment\\decoration\\furniture\\sofa_b.mesh");
   t.AssertTrue(IsDefined(mesh), "furn/mesh-matches");
   if IsDefined(mesh) { t.AssertEqS(mesh.activity, "sit", "furn/mesh-sofa-sit"); };
